@@ -11,19 +11,32 @@ class U2M:
     mpdroot=None
     _jobs = []
 
-    def __init__(self, mpdurl):
+    def __init__(self, mpdurl, proxy):
         self.mpdurl = mpdurl
+        self._proxy = proxy
 
     def _calculateNumberNow(self, startNumber, availabilityStartTime, timeShiftBufferDepth):
-        availabilityStartTime_utc = time.mktime(time.strptime(availabilityStartTime, "%Y-%m-%dT%H:%M:%S.%fZ"))
+        try:
+            availabilityStartTime_utc = time.mktime(time.strptime(availabilityStartTime, "%Y-%m-%dT%H:%M:%S.%fZ"))
+        except ValueError:
+            try:
+                availabilityStartTime_utc = time.mktime(time.strptime(availabilityStartTime, "%Y-%m-%dT%H:%M:%SZ"))
+            except ValueError:
+                raise Exception("No matching timeformat for %s" % availabilityStartTime)
+
         #print time.strptime(timeShiftBufferDepth, "PT%HH%MM%SS")
         #timeShiftBufferDepth_utc = time.mktime(time.strptime(timeShiftBufferDepth, "PT%HH%MM%SS"))
         return time.time()-availabilityStartTime_utc+time.timezone+int(startNumber)-10  #TODO: fix above
 
+    def cancel(self):
+        for p in self._jobs:
+            p.terminate()
 
     def run(self):
         #get mpd
-        proxy_handler = urllib2.ProxyHandler({'http': 'http://10.35.3.35:3128/'})
+
+        proxy_handler = urllib2.ProxyHandler({'http': self._proxy} if self._proxy != "" else {})
+
         opener = urllib2.build_opener(proxy_handler)
         ret = opener.open(self.mpdurl)
         mpd = ret.read()
@@ -52,10 +65,10 @@ class U2M:
                 segmenttemplate = adaptationset.find('.//ns:SegmentTemplate', ns)
                 print "SegmentTemplate (media=%s) found" % segmenttemplate.attrib['media'] #if 'media' in segmenttemplate.attrib else "Unknown"
                 for representation in adaptationset.findall('.//ns:Representation', ns):
-                    print "Representation '%s' found" % representation.attrib['id'] #if 'id' in representation.attrib else "Unknown"
+                    print "Representation '%s' found (bitrate: %s)" % (representation.attrib['id'],representation.attrib['bandwidth']) #if 'id' in representation.attrib else "Unknown"
 
                     url = os.path.dirname(self.mpdurl) + "/" + string.replace(segmenttemplate.attrib['media'],"$RepresentationID$",representation.attrib['id'])
-                    p = Worker(None,None,"test", (period.attrib['id'], representation.attrib['id'], url, self._calculateNumberNow(segmenttemplate.attrib['startNumber'], self.mpdroot.attrib['availabilityStartTime'], self.mpdroot.attrib['timeShiftBufferDepth']), 1))
+                    p = Worker(None,None,"test", (period.attrib['id'], representation.attrib['id'], url, self._calculateNumberNow(segmenttemplate.attrib['startNumber'], self.mpdroot.attrib['availabilityStartTime'], self.mpdroot.attrib['timeShiftBufferDepth']), 1, self._proxy))
                     self._jobs.append(p)
                     p.start()
 

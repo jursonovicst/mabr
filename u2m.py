@@ -7,6 +7,8 @@ parser = argparse.ArgumentParser(description='...')
 parser.add_argument('--log', help='log file, use - for stdout [default: %(default)s]', default="-")
 parser.add_argument('--severity', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
                     help='Log severity [default: %(default)s]', default="INFO")
+parser.add_argument('--proxy', help='proxy to use, use "" for no proxy [default: ""', default="")
+parser.add_argument('mpd', help='mpd file to open')
 args = parser.parse_args()
 
 if args.log != "-":
@@ -16,8 +18,14 @@ logging.basicConfig(level=getattr(logging, args.severity.upper(), None))
 
 if __name__ == '__main__':
     print "tom"
-    x = u2m.U2M('http://mabr-origin.atu0.org/mabr/ch01.mpd')
+    x=None
+    try:
+        x = u2m.U2M(args.mpd, args.proxy)
 
-    print "In progress..."
-    x.run() #this will block till all threads finishes...
-
+        logging.info("In progress...")
+        x.run() #this will block till all threads finishes...
+    except Exception as e:
+        logging.error("oops: " + e.message)
+    finally:
+        x.cancel()
+        logging.info("...exit")
