@@ -17,7 +17,6 @@ logging.basicConfig(level=getattr(logging, args.severity.upper(), None))
 
 
 if __name__ == '__main__':
-    print "tom"
     x=None
     try:
         x = u2m.U2M(args.mpd, args.proxy)
@@ -26,6 +25,8 @@ if __name__ == '__main__':
         x.run() #this will block till all threads finishes...
     except Exception as e:
         logging.error("oops: " + e.message)
+    except KeyboardInterrupt:
+        pass
     finally:
         x.cancel()
         logging.info("...exit")

@@ -17,19 +17,10 @@ class Worker(multiprocessing.Process):
         proxy_handler = urllib2.ProxyHandler({'http': args[5]} if args[5] != "" else {})
         self._opener = urllib2.build_opener(proxy_handler)
 
-
         self._timer = None
-#        logging.debug("W-%s/%s: init" % (self._periodid,self._representationid))
 
-
-        signal.signal(signal.SIGINT, signal.SIG_IGN)
-
-        #self._m = pycurl.CurlMulti()
-
+#        signal.signal(signal.SIGINT, signal.SIG_IGN)
         self._run = False
-
-#      self._m.setopt(pycurl.M_MAXCONNECTS, )       #shoud be 0 by default
-#      self._m.setopt(pycurl.M_PIPELINING, pycurl.M)  #should be disabled
 
     def _mytimer(self, fire_wc):
         # set next timer
@@ -41,13 +32,20 @@ class Worker(multiprocessing.Process):
         try:
             ret = self._opener.open(string.replace(self._urltemplate, "$Number$", str(self._number)))
         except urllib2.HTTPError as e:
-            print e.code, e.reason
+            if e.code == 404:
+                print e.code, e.reason
+            else:
+                raise e
 
         self._number += 1
 
     def run(self):
         self._run = True
         self._mytimer(time.time())
-
-        while self._run:
-            time.sleep(5)
+        try:
+            while self._run:
+                time.sleep(5)
+        except KeyboardInterrupt:
+            self._timer.cancel()
+            self._run = False
+            self._opener.close()
