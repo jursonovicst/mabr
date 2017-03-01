@@ -3,6 +3,7 @@ import xml.etree.ElementTree as ET
 import string
 import os
 import time
+import xml.dom.minidom
 
 from worker import *
 
@@ -40,10 +41,10 @@ class U2M:
         opener = urllib2.build_opener(proxy_handler)
         ret = opener.open(self.mpdurl)
         mpd = ret.read()
-        print mpd
 
         #parse mpd
         self.mpdroot = ET.fromstring(mpd)
+        print xml.dom.minidom.parseString(ET.tostring(self.mpdroot, 'utf-8')).toprettyxml(indent="  ")
 
         #check xml
         if 'profiles' not in self.mpdroot.attrib:
@@ -68,7 +69,7 @@ class U2M:
                     print "Representation '%s' found (bitrate: %s)" % (representation.attrib['id'],representation.attrib['bandwidth']) #if 'id' in representation.attrib else "Unknown"
 
                     url = os.path.dirname(self.mpdurl) + "/" + string.replace(segmenttemplate.attrib['media'],"$RepresentationID$",representation.attrib['id'])
-                    p = Worker(None,None,"test", (period.attrib['id'], representation.attrib['id'], url, self._calculateNumberNow(segmenttemplate.attrib['startNumber'], self.mpdroot.attrib['availabilityStartTime'], self.mpdroot.attrib['timeShiftBufferDepth']), 1, self._proxy))
+                    p = Worker(None,None,"test", (period.attrib['id'], representation.attrib['id'], url, self._calculateNumberNow(segmenttemplate.attrib['startNumber'], self.mpdroot.attrib['availabilityStartTime'], None), 1, self._proxy))
                     self._jobs.append(p)
                     p.start()
 

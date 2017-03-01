@@ -31,6 +31,7 @@ class Worker(multiprocessing.Process):
         print string.replace(self._urltemplate, "$Number$", str(self._number))
         try:
             ret = self._opener.open(string.replace(self._urltemplate, "$Number$", str(self._number)))
+            print ret.getcode()
         except urllib2.HTTPError as e:
             if e.code == 404:
                 print e.code, e.reason
