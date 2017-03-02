@@ -2,6 +2,7 @@ import u2m
 
 import logging
 import argparse
+from xml.etree.ElementTree import ParseError
 
 parser = argparse.ArgumentParser(description='...')
 parser.add_argument('--log', help='log file, use - for stdout [default: %(default)s]', default="-")
@@ -19,12 +20,15 @@ logging.basicConfig(level=getattr(logging, args.severity.upper(), None))
 if __name__ == '__main__':
     x=None
     try:
-        x = u2m.U2M(args.mpd, args.proxy)
+        x = u2m.U2M(args.mpd, args.proxy, logging)
 
         logging.info("In progress...")
         x.run() #this will block till all threads finishes...
+    except (ParseError, TypeError) as err:
+        logging.error("oops: " + str(err))
     except Exception as e:
         logging.error("oops: " + e.message)
+
     except KeyboardInterrupt:
         pass
     finally:

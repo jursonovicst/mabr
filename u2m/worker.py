@@ -1,14 +1,17 @@
 import os, signal
 import multiprocessing
-from threading import Timer
+import threading
 import time
 import string
 import urllib2
+import dpkt
+import socket
+import random
 
-class Worker(multiprocessing.Process):
+class Worker(threading.Thread):
 
-    def __init__(self, group=None, target=None, name=None, args=(), kwarggs={}):
-        multiprocessing.Process.__init__(self, group, target, name, args, kwarggs)
+    def __init__(self, group=None, target=None, name=None, args=(), kwarggs=None):
+        threading.Thread.__init__(self, group, target, name, args, kwarggs)
         self._periodid = args[0]
         self._representationid = args[1]
         self._urltemplate = args[2]
@@ -16,28 +19,61 @@ class Worker(multiprocessing.Process):
         self._period = int(args[4])
         proxy_handler = urllib2.ProxyHandler({'http': args[5]} if args[5] != "" else {})
         self._opener = urllib2.build_opener(proxy_handler)
+        self._logger = args[6]
 
         self._timer = None
-
-#        signal.signal(signal.SIGINT, signal.SIG_IGN)
         self._run = False
+        self._timeoffset_ut = time.time()
 
-    def _mytimer(self, fire_wc):
-        # set next timer
-        drift = time.time() - fire_wc
-        self._timer = Timer(self._period - drift, Worker._mytimer, [self, fire_wc + self._period])
+        self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+        random.seed(os.urandom(1))
+        self._rtp_pkt = dpkt.rtp.RTP()
+        self._rtp_pkt.version = 2
+        self._rtp_pkt.p=0
+        self._rtp_pkt.x=0
+        self._rtp_pkt.cc=0x2
+        self._rtp_pkt.m=0
+        self._rtp_pkt.pt=96
+        self._rtp_pkt.seq = random.randint(0,65535)
+        self._rtp_pkt.ts=0x00
+        self._rtp_pkt.ssrc=random.randint(0,1<<32-1)
+        self._rtp_pkt.csrc="11"
+
+    def _calctimestamp(self,resolution):
+        return int((time.time()-self._timeoffset_ut) * resolution)
+
+    def _mytimer(self, fireat_wc):
+        # set next timer and compensate drift from wc(wallclock)
+        drift = time.time() - fireat_wc
+        self._timer = threading.Timer(self._period - drift, Worker._mytimer, [self, fireat_wc + self._period])
         self._timer.start()
 
-        print string.replace(self._urltemplate, "$Number$", str(self._number))
+        # 1. Load segment
+        url = string.replace(self._urltemplate, "$Number$", str(self._number))
+        message = "Accessing segment '%s':" % url
+        ret = None
         try:
-            ret = self._opener.open(string.replace(self._urltemplate, "$Number$", str(self._number)))
-            print ret.getcode()
-        except urllib2.HTTPError as e:
-            if e.code == 404:
-                print e.code, e.reason
-            else:
-                raise e
+            ret = self._opener.open(url)
+            message += " HTTP %s" % ret.getcode()
 
+            #send it out
+            buff=ret.read(800)
+            self._rtp_pkt.m = 1
+            self._rtp_pkt.ts = self._calctimestamp(90000)
+            while buff != "":
+                self._rtp_pkt.seq = (self._rtp_pkt.seq + 1) % 65536
+                self._rtp_pkt.data = buff
+                sent = self._sock.sendto(str(self._rtp_pkt), ("192.168.0.1", 2111))
+                buff = ret.read(800)
+                self._rtp_pkt.m = 0
+
+        except urllib2.HTTPError as e:
+            message += " HTTP %s (%s)" % (e.code, e.reason)
+        except Exception as e:
+            raise e
+
+        self._logger.info(message)
         self._number += 1
 
     def run(self):
@@ -45,7 +81,7 @@ class Worker(multiprocessing.Process):
         self._mytimer(time.time())
         try:
             while self._run:
-                time.sleep(5)
+                time.sleep(1)
         except KeyboardInterrupt:
             self._timer.cancel()
             self._run = False
