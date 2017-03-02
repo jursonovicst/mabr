@@ -6,6 +6,7 @@ import urllib2
 import dpkt
 import socket
 import random
+import memcache
 
 class Worker(threading.Thread):
 
@@ -39,6 +40,8 @@ class Worker(threading.Thread):
         self._rtp_pkt.ts=0x00
         self._rtp_pkt.ssrc=random.randint(0,1<<32-1)
         self._rtp_pkt.csrc="11"
+
+        self._memcache = memcache.Client(['192.168.10.128:11211'], debug=0)
 
     def _calctimestamp(self,resolution):
         return int((time.time()-self._timeoffset_ut) * resolution)

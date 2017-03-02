@@ -1,5 +1,6 @@
 import threading
 import socket
+import dpkt
 
 
 class Receiver(threading.Thread):
@@ -30,4 +31,8 @@ class Receiver(threading.Thread):
 
         while self._run:
             data, addr = self._sock.recvfrom(1024)
-            print "."
+            rtp_pkt = dpkt.rtp.RTP()
+            rtp_pkt.unpack(data)
+            print rtp_pkt.version
+
+
