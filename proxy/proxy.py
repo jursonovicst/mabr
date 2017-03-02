@@ -1,4 +1,5 @@
 from receiver import Receiver
+from httpserver import Server
 
 class Proxy():
 
@@ -13,6 +14,9 @@ class Proxy():
         self._jobs.append(p)
         p = Receiver(name="receiver-%s" % "id", args=(self._logger, '224.1.1.1', 2003))
         self._jobs.append(p)
+        p = Server(name="Test",args=(self._logger, '', 80))
+        self._jobs.append(p)
+
 
     def start(self):
         for p in self._jobs:

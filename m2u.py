@@ -19,12 +19,11 @@ logging.basicConfig(level=getattr(logging, args.severity.upper(), None))
 if __name__ == '__main__':
     x = None
     try:
-        x = proxy.Proxy(args.proxy, logging)
-
+        proxy = proxy.Proxy(args.proxy, logging)
+        proxy.start()
         logging.info("In progress...")
-        x.start()
 
-#    except (TypeError) as err:
+    #    except (TypeError) as err:
 #        logging.error("oops: " + str(err))
 #    except Exception as e:
 #        logging.error("oops: " + e.message)
