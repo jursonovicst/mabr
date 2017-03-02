@@ -1,5 +1,4 @@
 import os, signal
-import multiprocessing
 import threading
 import time
 import string
@@ -13,13 +12,14 @@ class Worker(threading.Thread):
     def __init__(self, group=None, target=None, name=None, args=(), kwarggs=None):
         threading.Thread.__init__(self, group, target, name, args, kwarggs)
         self._periodid = args[0]
-        self._representationid = args[1]
-        self._urltemplate = args[2]
-        self._number = int(args[3])
-        self._period = int(args[4])
-        proxy_handler = urllib2.ProxyHandler({'http': args[5]} if args[5] != "" else {})
+        self._mcast_grp = args[1]
+        self._mcast_port = int(args[2])
+        self._urltemplate = args[3]
+        self._number = int(args[4])
+        self._period = int(args[5])
+        proxy_handler = urllib2.ProxyHandler({'http': args[6]} if args[6] != "" else {})
         self._opener = urllib2.build_opener(proxy_handler)
-        self._logger = args[6]
+        self._logger = args[7]
 
         self._timer = None
         self._run = False
@@ -64,16 +64,15 @@ class Worker(threading.Thread):
             while buff != "":
                 self._rtp_pkt.seq = (self._rtp_pkt.seq + 1) % 65536
                 self._rtp_pkt.data = buff
-                sent = self._sock.sendto(str(self._rtp_pkt), ("192.168.0.1", 2111))
+                sent = self._sock.sendto(str(self._rtp_pkt), (self._mcast_grp, self._mcast_port))
                 buff = ret.read(800)
                 self._rtp_pkt.m = 0
 
         except urllib2.HTTPError as e:
             message += " HTTP %s (%s)" % (e.code, e.reason)
-        except Exception as e:
-            raise e
+        finally:
+            self._logger.info(message)
 
-        self._logger.info(message)
         self._number += 1
 
     def run(self):

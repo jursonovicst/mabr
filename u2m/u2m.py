@@ -70,8 +70,9 @@ class U2M:
                 for representation in adaptationset.findall('.//ns:Representation', ns):
                     self._logger.debug("Representation '%s' found (bitrate: %s)" % (representation.attrib['id'],representation.attrib['bandwidth']))
 
+                    (mcast_grp, mcast_port) = representation.attrib['id'].split('-')
                     url = os.path.dirname(self.mpdurl) + "/" + string.replace(segmenttemplate.attrib['media'],"$RepresentationID$",representation.attrib['id'])
-                    p = Worker(name="u2m-%s" % representation.attrib['id'], args=(period.attrib['id'], representation.attrib['id'], url, self._calculateNumberNow(segmenttemplate.attrib['startNumber'], self.mpdroot.attrib['availabilityStartTime'], None), 1, self._proxy, self._logger))
+                    p = Worker(name="u2m-%s" % representation.attrib['id'], args=(period.attrib['id'], mcast_grp, int(mcast_port), url, self._calculateNumberNow(segmenttemplate.attrib['startNumber'], self.mpdroot.attrib['availabilityStartTime'], None), 1, self._proxy, self._logger))
                     self._jobs.append(p)
                     p.start()
 
