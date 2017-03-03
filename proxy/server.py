@@ -3,17 +3,27 @@ from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
 import os
 import urllib2
 import dash
-#from receiver import Receiver
+import memcache
+from receiver import Receiver
 
 
-def MakeHandlerClass(logger, allowedfqdns):
+def MakeHandlerClass(logger, allowedfqdns, memcached):
     class CustomHandler(BaseHTTPRequestHandler, object):
 
         _initsegmentpaths = []
 
+        _jobs = {}
+
+        @staticmethod
+        def stop():
+            for key in CustomHandler._jobs:
+                p = CustomHandler._jobs.pop(key)
+                p.stop()
+
         def __init__(self, *args, **kwargs):
             self._logger = logger
             self._allowedfqdns = allowedfqdns
+            self._memcached = memcache.Client([memcached], debug=0)
 
             super(CustomHandler, self).__init__(*args, **kwargs)
 
@@ -51,21 +61,38 @@ def MakeHandlerClass(logger, allowedfqdns):
             if ext == ".mpd":
                 mpd = self.passthrough(url)
 
-                # Parse mpd and figure out init segment urls for passthrough
+                # Parse mpd
                 mpdparser = dash.MPDParser(mpd)
+
+                # Figure out init segment urls for passthrough
                 for initsegmentpath in mpdparser.getinitsegmentpaths():
-                    CustomHandler._initsegmentpaths.add(fqdn + dirname + initsegmentpath)
+                    if (fqdn + dirname + initsegmentpath) not in CustomHandler._initsegmentpaths:
+                        CustomHandler._initsegmentpaths.append(fqdn + dirname + initsegmentpath)
                     self._logger.debug("Initsegment %s marked for passthrough" % (fqdn + dirname + initsegmentpath))
 
+                # Start multicast receivers, if not already running
+                for mcastaddr,mcastport in mpdparser.getmulticasts():
+                    key = mcastaddr + ':' + str(mcastport)
+                    if key not in CustomHandler._jobs or not CustomHandler._jobs[key].is_alive():
+                        p = Receiver(name="receiver-%s" % "id", args=(self._logger, mcastaddr, mcastport))
+                        CustomHandler._jobs[key] = p
+                        p.start()
+
             elif ext == ".m4s" or ext == ".mp4":
-                #check for passthrough init segments
                 if (fqdn + path) in CustomHandler._initsegmentpaths:
+                    # Init segment -->passthrough
                     self.passthrough(url)
+                else:
+                    m4s = self._memcached.get(fqdn + path)
+                    if m4s is None:
+                        # MISS -->passthrough
+                        self.passthrough(url)
+                    else:
+                        # HIT -->respond
+                        self.respond(m4s)
 
             else:
                 self._logger.debug("Unknown extension: '%s" % ext)
-
-
 
             return
 
@@ -86,10 +113,24 @@ def MakeHandlerClass(logger, allowedfqdns):
                 self._logger.info("Passthrough url '%s'" % url)
 
             except urllib2.HTTPError as e:
+                print res.getcode()
                 self.send_response(res.getcode())
+
                 self.wfile.write(e.message)
             finally:
                 return buff
+
+        def respond(self, buff):
+            try:
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(buff)
+
+                self._logger.info("Hit url '%s'" % '--')    #TODO: implement
+
+            except Exception as e:
+                self.send_response(500)
+                self.wfile.write(e.message)
 
     return CustomHandler
 
@@ -105,10 +146,11 @@ class Server(threading.Thread):
         self._ip = args[1]
         self._port = int(args[2])
         fqdns = args[3]
+        memcached = args[4]
 
         self._run = False
         self._logger.debug("HTTPServer thread started")
-        myhandler = MakeHandlerClass(self._logger,fqdns)
+        myhandler = MakeHandlerClass(self._logger, fqdns, memcached)
         self._server = HTTPServer((self._ip, self._port), myhandler)
 
     def run(self):
@@ -128,5 +170,8 @@ class Server(threading.Thread):
     def stop(self):
         self._run = False
         self._server.shutdown()
+
+        myhandler = MakeHandlerClass(self._logger, None, '')
+        myhandler.stop()
 
 

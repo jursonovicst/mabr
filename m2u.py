@@ -8,6 +8,8 @@ parser.add_argument('--log', help='log file, use - for stdout [default: %(defaul
 parser.add_argument('--severity', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
                     help='Log severity [default: %(default)s]', default="INFO")
 parser.add_argument('--proxy', help='proxy to use, use "" for no proxy [default: ""', default="")
+parser.add_argument('--memcached', help='memcache to use, provide IP:PORT or UNIX socket path [default: %(default)s]', default="127.0.0.1:11211")
+
 parser.add_argument('FQDN', nargs='+', help='FQDN to intercept')
 args = parser.parse_args()
 
@@ -18,7 +20,7 @@ logging.basicConfig(level=getattr(logging, args.severity.upper(), None))
 
 if __name__ == '__main__':
 
-    proxy = proxy.Proxy(args.proxy, logging, args.FQDN)
+    proxy = proxy.Proxy(args.proxy, logging, args.FQDN, args.memcached)
 
     run = True
     while run:

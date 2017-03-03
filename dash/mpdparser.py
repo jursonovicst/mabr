@@ -4,6 +4,8 @@ import string
 
 class MPDParser:
 
+    _ns = {'ns': 'urn:mpeg:dash:schema:mpd:2011'}
+
     def __init__(self, mpd):
         self._mpd = mpd
         self._mpdroot = None
@@ -24,11 +26,24 @@ class MPDParser:
 
         #find repres
         initsegmentpaths = []
-        ns = {'ns': 'urn:mpeg:dash:schema:mpd:2011'}
-        for period in self._mpdroot.findall('.//ns:Period', ns):
-            for adaptationset in period.findall('.//ns:AdaptationSet', ns):
-                segmenttemplate = adaptationset.find('.//ns:SegmentTemplate', ns)
-                for representation in adaptationset.findall('.//ns:Representation', ns):
+        for period in self._mpdroot.findall('.//ns:Period', MPDParser._ns):
+            for adaptationset in period.findall('.//ns:AdaptationSet', MPDParser._ns):
+                segmenttemplate = adaptationset.find('.//ns:SegmentTemplate', MPDParser._ns)
+                for representation in adaptationset.findall('.//ns:Representation', MPDParser._ns):
                     initsegmentpaths.append("/" + string.replace(segmenttemplate.attrib['initialization'],"$RepresentationID$",representation.attrib['id']))
 
         return initsegmentpaths
+
+    def getmulticasts(self):
+        if self._mpdroot is None:
+            self._loadmpd()
+
+        #find multicast addresses
+        multicasts = []
+        for period in self._mpdroot.findall('.//ns:Period', MPDParser._ns):
+            for adaptationset in period.findall('.//ns:AdaptationSet', MPDParser._ns):
+                for representation in adaptationset.findall('.//ns:Representation', MPDParser._ns):
+                    addr, port = representation.attrib['id'].split('-',2)
+                    multicasts.append([addr,int(port)])
+
+        return multicasts

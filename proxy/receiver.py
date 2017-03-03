@@ -20,7 +20,8 @@ class Receiver(threading.Thread):
             pass
         self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 32)
         self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1)
-        self._logger.debug("Receiver thread started")
+        self._sock.settimeout(0.1)
+        self._logger.debug("Receiver thread started for %s:%d" % (self._mcast_grp, self._mcast_port))
 
     def run(self):
         self._run = True
@@ -30,9 +31,13 @@ class Receiver(threading.Thread):
         self._sock.setsockopt(socket.SOL_IP, socket.IP_ADD_MEMBERSHIP, socket.inet_aton(self._mcast_grp) + socket.inet_aton(host))
 
         while self._run:
-            data, addr = self._sock.recvfrom(1024)
-            rtp_pkt = dpkt.rtp.RTP()
-            rtp_pkt.unpack(data)
-            print rtp_pkt.version
+            try:
+                data, addr = self._sock.recvfrom(1024)
+                rtp_pkt = dpkt.rtp.RTP()
+                rtp_pkt.unpack(data)
+                print rtp_pkt.version
+            except socket.timeout:
+                pass
 
-
+    def stop(self):
+        self._run = False
