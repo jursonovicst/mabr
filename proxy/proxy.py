@@ -1,26 +1,30 @@
-from receiver import Receiver
-from httpserver import Server
+from server import Server
 
 class Proxy():
 
-    def __init__(self, proxy, logger):
+    def __init__(self, proxy, logger, fqdn):
         self._proxy = proxy
         self._logger = logger
+        self._fqdn = fqdn
         self._jobs = []
 
-        p = Receiver(name="receiver-%s" % "id", args=(self._logger, '224.1.1.1', 2001))
-        self._jobs.append(p)
-        p = Receiver(name="receiver-%s" % "id", args=(self._logger, '224.1.1.1', 2002))
-        self._jobs.append(p)
-        p = Receiver(name="receiver-%s" % "id", args=(self._logger, '224.1.1.1', 2003))
-        self._jobs.append(p)
-        p = Server(name="Test",args=(self._logger, '', 80))
-        self._jobs.append(p)
+#        p = Receiver(name="receiver-%s" % "id", args=(self._logger, '224.1.1.1', 2001))
+#        self._jobs.append(p)
+#        p = Receiver(name="receiver-%s" % "id", args=(self._logger, '224.1.1.1', 2002))
+#        self._jobs.append(p)
+#        p = Receiver(name="receiver-%s" % "id", args=(self._logger, '224.1.1.1', 2003))
+#        self._jobs.append(p)
 
 
     def start(self):
-        for p in self._jobs:
-            p.start()
+        p = Server(name="Test",args=(self._logger, '', 80, self._fqdn))
+        self._jobs.append(p)
+        p.start()
+
+        # This will block
+        p.join()
 
     def stop(self):
-        pass
+        for p in self._jobs:
+            p.stop()
+            self._jobs.remove(p)

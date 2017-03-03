@@ -8,7 +8,7 @@ parser.add_argument('--log', help='log file, use - for stdout [default: %(defaul
 parser.add_argument('--severity', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
                     help='Log severity [default: %(default)s]', default="INFO")
 parser.add_argument('--proxy', help='proxy to use, use "" for no proxy [default: ""', default="")
-#parser.add_argument('mpd', help='mpd file to open')
+parser.add_argument('FQDN', help='FQDN to intercept')
 args = parser.parse_args()
 
 if args.log != "-":
@@ -17,19 +17,18 @@ logging.basicConfig(level=getattr(logging, args.severity.upper(), None))
 
 
 if __name__ == '__main__':
-    x = None
-    try:
-        proxy = proxy.Proxy(args.proxy, logging)
-        proxy.start()
-        logging.info("In progress...")
 
-    #    except (TypeError) as err:
-#        logging.error("oops: " + str(err))
-#    except Exception as e:
-#        logging.error("oops: " + e.message)
+    proxy = proxy.Proxy(args.proxy, logging, args.FQDN)
 
-    except KeyboardInterrupt:
-        pass
-    finally:
-        #x.stop()
-        logging.info("...exit")
+    run = True
+    while run:
+        try:
+            # This will block
+            proxy.start()
+        except KeyboardInterrupt:
+            run = False
+            logging.info("...exit")
+        except Exception as e:
+            logging.warning("oops: '%s', respawn..." % e.message)
+        finally:
+            proxy.stop()
