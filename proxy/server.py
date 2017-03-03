@@ -7,7 +7,7 @@ import memcache
 from receiver import Receiver
 
 
-def MakeHandlerClass(logger, allowedfqdns, memcached):
+def MakeHandlerClass(logger, allowedfqdns, _memcachedaddress):
     class CustomHandler(BaseHTTPRequestHandler, object):
 
         _initsegmentpaths = []
@@ -23,7 +23,8 @@ def MakeHandlerClass(logger, allowedfqdns, memcached):
         def __init__(self, *args, **kwargs):
             self._logger = logger
             self._allowedfqdns = allowedfqdns
-            self._memcached = memcache.Client([memcached], debug=0)
+            self._memcachedaddress = _memcachedaddress
+            self._memcached = memcache.Client([_memcachedaddress], debug=0)
 
             super(CustomHandler, self).__init__(*args, **kwargs)
 
@@ -74,7 +75,7 @@ def MakeHandlerClass(logger, allowedfqdns, memcached):
                 for mcastaddr,mcastport in mpdparser.getmulticasts():
                     key = mcastaddr + ':' + str(mcastport)
                     if key not in CustomHandler._jobs or not CustomHandler._jobs[key].is_alive():
-                        p = Receiver(name="receiver-%s" % "id", args=(self._logger, mcastaddr, mcastport))
+                        p = Receiver(name="receiver-%s" % "id", args=(self._logger, mcastaddr, mcastport, self._memcachedaddress))
                         CustomHandler._jobs[key] = p
                         p.start()
 

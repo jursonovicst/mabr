@@ -1,6 +1,8 @@
 import threading
 import socket
 import dpkt
+import memcache
+
 
 
 class Receiver(threading.Thread):
@@ -11,6 +13,8 @@ class Receiver(threading.Thread):
         self._logger = args[0]
         self._mcast_grp = args[1]
         self._mcast_port = int(args[2])
+        self._memcachedaddress = args[3]
+        self._memcached = memcache.Client([self._memcachedaddress], debug=0)
 
         self._run = False
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
@@ -36,6 +40,9 @@ class Receiver(threading.Thread):
                 rtp_pkt = dpkt.rtp.RTP()
                 rtp_pkt.unpack(data)
                 print rtp_pkt.version
+                key = str(self._mcast_grp) + ":" + str(self._mcast_port) + ":" + str(rtp_pkt.seq)
+                print key
+                self._memcached.set(key,rtp_pkt.data)
             except socket.timeout:
                 pass
 
