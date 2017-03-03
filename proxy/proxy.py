@@ -2,10 +2,10 @@ from server import Server
 
 class Proxy():
 
-    def __init__(self, proxy, logger, fqdn):
+    def __init__(self, proxy, logger, allowedfqdns):
         self._proxy = proxy
         self._logger = logger
-        self._fqdn = fqdn
+        self._allowedfqdns = allowedfqdns
         self._jobs = []
 
 #        p = Receiver(name="receiver-%s" % "id", args=(self._logger, '224.1.1.1', 2001))
@@ -17,7 +17,7 @@ class Proxy():
 
 
     def start(self):
-        p = Server(name="Test",args=(self._logger, '', 80, self._fqdn))
+        p = Server(name="Test",args=(self._logger, '', 80, self._allowedfqdns))
         self._jobs.append(p)
         p.start()
 

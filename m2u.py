@@ -8,7 +8,7 @@ parser.add_argument('--log', help='log file, use - for stdout [default: %(defaul
 parser.add_argument('--severity', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
                     help='Log severity [default: %(default)s]', default="INFO")
 parser.add_argument('--proxy', help='proxy to use, use "" for no proxy [default: ""', default="")
-parser.add_argument('FQDN', help='FQDN to intercept')
+parser.add_argument('FQDN', nargs='+', help='FQDN to intercept')
 args = parser.parse_args()
 
 if args.log != "-":
