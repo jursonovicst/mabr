@@ -5,16 +5,17 @@ import os
 import time
 import xml.dom.minidom
 
-from worker import *
+from mcsender import *
 
-class U2M:
+class MPDParser:
     mpdurl=""
     mpdroot=None
 
-    def __init__(self, mpdurl, proxy, logger):
+    def __init__(self, mpdurl, proxy, logger, config):
         self.mpdurl = mpdurl
         self._proxy = proxy
         self._logger = logger
+        self._config = config
         self._jobs = []
 
     def _calculateNumberNow(self, startNumber, availabilityStartTime, timeShiftBufferDepth):
@@ -70,9 +71,11 @@ class U2M:
                 for representation in adaptationset.findall('.//ns:Representation', ns):
                     self._logger.debug("Representation '%s' found (bitrate: %s)" % (representation.attrib['id'],representation.attrib['bandwidth']))
 
-                    (mcast_grp, mcast_port) = representation.attrib['id'].split('-')
+                    mcast_grp = self._config.get(representation.attrib['id'], 'mcast_grp')
+                    mcast_port = self._config.get(representation.attrib['id'], 'mcast_port')
+                    ssrc = self._config.get(representation.attrib['id'], 'ssrc')
                     url = os.path.dirname(self.mpdurl) + "/" + string.replace(segmenttemplate.attrib['media'],"$RepresentationID$",representation.attrib['id'])
-                    p = Worker(name="u2m-%s" % representation.attrib['id'], args=(period.attrib['id'], mcast_grp, int(mcast_port), url, self._calculateNumberNow(segmenttemplate.attrib['startNumber'], self.mpdroot.attrib['availabilityStartTime'], None), 1, self._proxy, self._logger))
+                    p = MCSender(name="u2m-%s" % representation.attrib['id'], args=(period.attrib['id'], mcast_grp, int(mcast_port), int(ssrc), url, self._calculateNumberNow(segmenttemplate.attrib['startNumber'], self.mpdroot.attrib['availabilityStartTime'], None), 1, self._proxy, self._logger))
                     self._jobs.append(p)
                     p.start()
 

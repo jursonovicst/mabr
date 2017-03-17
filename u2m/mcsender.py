@@ -3,24 +3,25 @@ import threading
 import time
 import string
 import urllib2
-import dpkt
 import socket
 import random
 import memcache
+import rtpext
 
-class Worker(threading.Thread):
+class MCSender(threading.Thread):
 
     def __init__(self, group=None, target=None, name=None, args=(), kwarggs=None):
         threading.Thread.__init__(self, group, target, name, args, kwarggs)
         self._periodid = args[0]
         self._mcast_grp = args[1]
         self._mcast_port = int(args[2])
-        self._urltemplate = args[3]
-        self._number = int(args[4])
-        self._period = int(args[5])
-        proxy_handler = urllib2.ProxyHandler({'http': args[6]} if args[6] != "" else {})
+        self._ssrc = int(args[3])
+        self._urltemplate = args[4]
+        self._number = int(args[5])
+        self._period = int(args[6])
+        proxy_handler = urllib2.ProxyHandler({'http': args[7]} if args[7] != "" else {})
         self._opener = urllib2.build_opener(proxy_handler)
-        self._logger = args[7]
+        self._logger = args[8]
 
         self._timer = None
         self._run = False
@@ -29,18 +30,23 @@ class Worker(threading.Thread):
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
         random.seed(os.urandom(1))
-        self._rtp_pkt = dpkt.rtp.RTP()
+        self._rtp_pkt = rtpext.RTPExt()
         self._rtp_pkt.version = 2
         self._rtp_pkt.p=0
         self._rtp_pkt.x=0
         self._rtp_pkt.cc=0x2
         self._rtp_pkt.m=0
+        self._rtp_pkt.x=1
         self._rtp_pkt.pt=96
         self._rtp_pkt.seq = random.randint(0,65535)
         self._rtp_pkt.ts=0x00
-        self._rtp_pkt.ssrc=random.randint(0,1<<32-1)
+        self._rtp_pkt.ssrc=self._ssrc
         self._rtp_pkt.csrc="11"
+        self._rtp_pkt.ehid=12
+        self._rtp_pkt.ehlen=len("TomiTomiTomiTomi")
+        self._rtp_pkt.eh="TomiTomiTomiTomi"
 
+        test= str(self._rtp_pkt)
         self._memcache = memcache.Client(['192.168.10.128:11211'], debug=0)
 
     def _calctimestamp(self,resolution):
@@ -49,7 +55,7 @@ class Worker(threading.Thread):
     def _mytimer(self, fireat_wc):
         # set next timer and compensate drift from wc(wallclock)
         drift = time.time() - fireat_wc
-        self._timer = threading.Timer(self._period - drift, Worker._mytimer, [self, fireat_wc + self._period])
+        self._timer = threading.Timer(self._period - drift, MCSender._mytimer, [self, fireat_wc + self._period])
         self._timer.start()
 
         # 1. Load segment

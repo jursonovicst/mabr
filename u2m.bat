@@ -1,1 +1,1 @@
-c:\Python27\python.exe C:\Users\A9423340\PycharmProjects\mabr\u2m.py --severity DEBUG --proxy http://10.35.3.35:3128 http://mabr-origin.atu0.org/mabr/ch01.mpd
+c:\Python27\python.exe C:\Users\A9423340\PycharmProjects\mabr\u2m.py --severity DEBUG --proxy http://10.35.3.35:3128 http://mabr-origin.atu0.org/mabr/ch01/ch01.mpd --config ch01.conf
