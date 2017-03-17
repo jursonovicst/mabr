@@ -5,7 +5,6 @@ import string
 import urllib2
 import socket
 import random
-import memcache
 import rtpext
 import struct
 
@@ -45,7 +44,6 @@ class MCSender(threading.Thread):
         self._rtp_pkt.ehid=12
 
         test= str(self._rtp_pkt)
-        self._memcache = memcache.Client(['192.168.10.128:11211'], debug=0)
 
     def _calctimestamp(self,resolution):
         return int((time.time()-self._timeoffset_ut) * resolution)
