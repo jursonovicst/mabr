@@ -25,7 +25,7 @@ class RTPExt(RTP):
         else:
             super(RTPExt, self).unpack(buf)
             self.csrc  =     buf[self.__hdr_len__:                                   self.__hdr_len__ + self.cc * 4    ]
-            self.ehid  = int(buf[self.__hdr_len__ + self.cc * 4:                     self.__hdr_len__ + self.cc * 4 + 2])
-            self.ehlen = int(buf[self.__hdr_len__ + self.cc * 4 + 2:                 self.__hdr_len__ + self.cc * 4 + 4])
+            self.ehid  = struct.unpack('!H',buf[self.__hdr_len__ + self.cc * 4:                     self.__hdr_len__ + self.cc * 4 + 2])
+            self.ehlen = struct.unpack('!H',buf[self.__hdr_len__ + self.cc * 4 + 2:                 self.__hdr_len__ + self.cc * 4 + 4])
             self.eh    =     buf[self.__hdr_len__ + self.cc * 4 + 4:                 self.__hdr_len__ + self.cc * 4 + 4 + self.ehlen * 4]
             self.data =      buf[self.__hdr_len__ + self.cc * 4 + 4 + self.ehlen * 4:]

@@ -29,6 +29,11 @@ class MPDParser:
 
         #print time.strptime(timeShiftBufferDepth, "PT%HH%MM%SS")
         #timeShiftBufferDepth_utc = time.mktime(time.strptime(timeShiftBufferDepth, "PT%HH%MM%SS"))
+        print time.time()
+        print availabilityStartTime_utc
+        print time.timezone
+        print int(startNumber)-10
+        print time.time()-availabilityStartTime_utc+time.timezone+int(startNumber)-10
         return time.time()-availabilityStartTime_utc+time.timezone+int(startNumber)-10  #TODO: fix above
 
     def cancel(self):
