@@ -55,6 +55,7 @@ class MPDParser:
         mpd = ret.read()
         opener.close()
 
+
         #parse mpd
         self.mpdroot = ET.fromstring(mpd)
         #print xml.dom.minidom.parseString(ET.tostring(self.mpdroot, 'utf-8')).toprettyxml(indent="  ")
