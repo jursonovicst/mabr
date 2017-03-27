@@ -137,7 +137,7 @@ def MakeHandlerClass(logger, allowedfqdns, _memcachedaddress):
 
 
 
-class Server(threading.Thread):
+class HTTPProxy(threading.Thread):
 
 
     def __init__(self, group=None, target=None, name="HTTPServer", args=(), kwarggs=None):

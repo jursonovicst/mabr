@@ -104,8 +104,13 @@ class MCSender(threading.Thread):
         self._mytimer(time.time())
         try:
             while self._run:
-                time.sleep(1)
+                time.sleep(0.1)
         except KeyboardInterrupt:
-            self._timer.cancel()
+            self._timer.stop()
             self._run = False
             self._opener.close()
+
+    def stop(self):
+        self._timer.stop()
+        self._run = False
+        self._opener.close()

@@ -4,6 +4,9 @@ import string
 import os
 import time
 import xml.dom.minidom
+import ConfigParser
+import re
+
 
 from mcsender import *
 
@@ -17,38 +20,40 @@ class MPDParser:
         self._logger = logger
         self._config = config
         self._jobs = []
+        self._run = True
 
-    def _calculateNumberNow(self, startNumber, availabilityStartTime, timeShiftBufferDepth):
+    def _str2unixtime(self, timestr):
+        if timestr == None or timestr == "":
+            return 0
+
         try:
-            availabilityStartTime_utc = time.mktime(time.strptime(availabilityStartTime, "%Y-%m-%dT%H:%M:%S.%fZ"))
+            return time.mktime(time.strptime(timestr, "%Y-%m-%dT%H:%M:%S.%fZ"))
         except ValueError:
             try:
-                availabilityStartTime_utc = time.mktime(time.strptime(availabilityStartTime, "%Y-%m-%dT%H:%M:%SZ"))
+                return time.mktime(time.strptime(timestr, "%Y-%m-%dT%H:%M:%SZ"))
             except ValueError:
-                raise Exception("No matching timeformat for %s" % availabilityStartTime)
+                try:
+                    match = re.search("PT(\d+(\.\d+)*)S", timestr)
+                    return float(match.group(1))
+                except:
+                    raise Exception("No matching timeformat for %s" % timestr)
 
-        #print time.strptime(timeShiftBufferDepth, "PT%HH%MM%SS")
-        #timeShiftBufferDepth_utc = time.mktime(time.strptime(timeShiftBufferDepth, "PT%HH%MM%SS"))
-        print time.time()
-        print availabilityStartTime_utc
-        print time.timezone
-        print int(startNumber)-10
-        print time.time()-availabilityStartTime_utc+time.timezone+int(startNumber)-10
-        return time.time()-availabilityStartTime_utc+time.timezone+int(startNumber)-10  #TODO: fix above
+    def _calculateNumberNow(self, timescale, duration, startNumber, availabilityStartTime, suggestedPresentationDelay=None):
 
-    def cancel(self):
-        for p in self._jobs:
-            p.terminate()
+        offset_tick = (time.time() + time.timezone - self._str2unixtime(availabilityStartTime) - self._str2unixtime(suggestedPresentationDelay)) * int(timescale)
+        offset_number = offset_tick / int(duration) + int(startNumber) - 1
+        print int(offset_number)
+        return offset_number
 
-    def run(self):
-        #get mpd
-
+    def fetch(self):
         proxy_handler = urllib2.ProxyHandler({'http': self._proxy} if self._proxy != "" else {})
 
+        # get mpd
         self._logger.debug("Open manifest file '%s'" % self.mpdurl)
         opener = urllib2.build_opener(proxy_handler)
         ret = opener.open(self.mpdurl)
         mpd = ret.read()
+        opener.close()
 
         #parse mpd
         self.mpdroot = ET.fromstring(mpd)
@@ -56,10 +61,12 @@ class MPDParser:
 
         #check xml #TODO: use xslt...
         if 'profiles' not in self.mpdroot.attrib:
+            self._run = False
             raise Exception("invalid mpd, no profile")
         self._logger.debug("MPD %s found" % self.mpdroot.attrib['profiles'])
 
         if 'type' not in self.mpdroot.attrib or self.mpdroot.attrib['type']!="dynamic":
+            self._run = False
             raise Exception("Non dynamic MPD")
         self._logger.debug("Dynamic mpd found")
 
@@ -76,20 +83,25 @@ class MPDParser:
                 for representation in adaptationset.findall('.//ns:Representation', ns):
                     self._logger.debug("Representation '%s' found (bitrate: %s)" % (representation.attrib['id'],representation.attrib['bandwidth']))
 
-                    mcast_grp = self._config.get(representation.attrib['id'], 'mcast_grp')
-                    mcast_port = self._config.get(representation.attrib['id'], 'mcast_port')
-                    ssrc = self._config.get(representation.attrib['id'], 'ssrc')
-                    url = os.path.dirname(self.mpdurl) + "/" + string.replace(segmenttemplate.attrib['media'],"$RepresentationID$",representation.attrib['id'])
-                    p = MCSender(name="u2m-%s" % representation.attrib['id'], args=(period.attrib['id'], mcast_grp, int(mcast_port), int(ssrc), url, self._calculateNumberNow(segmenttemplate.attrib['startNumber'], self.mpdroot.attrib['availabilityStartTime'], None), 1, self._proxy, self._logger))
-                    self._jobs.append(p)
-                    p.start()
+                    try:
+                        mcast_grp = self._config.get(representation.attrib['id'], 'mcast_grp')
+                        mcast_port = self._config.get(representation.attrib['id'], 'mcast_port')
+                        ssrc = self._config.get(representation.attrib['id'], 'ssrc')
+                        url = os.path.dirname(self.mpdurl) + "/" + string.replace(segmenttemplate.attrib['media'],"$RepresentationID$",representation.attrib['id'])
+                        self._logger.info("Sending representation '%s'" % representation.attrib['id'])
+                        p = MCSender(name="u2m-%s" % representation.attrib['id'], args=(period.attrib['id'], mcast_grp, int(mcast_port), int(ssrc), url, self._calculateNumberNow(segmenttemplate.attrib['timescale'], segmenttemplate.attrib['duration'], segmenttemplate.attrib['startNumber'], self.mpdroot.attrib['availabilityStartTime'], self.mpdroot.attrib['suggestedPresentationDelay'] if 'suggestedPresentationDelay' in self.mpdroot.attrib else None), int(segmenttemplate.attrib['duration'])/int(segmenttemplate.attrib['timescale']), self._proxy, self._logger))
+                        self._jobs.append(p)
+                        p.start()
+                    except ConfigParser.NoSectionError:
+                        pass
 
+    def join(self):
         for p in self._jobs:
             p.join()
 
-        self._logger.debug("Exit")
-
-
+    def stop(self):
+        for p in self._jobs:
+            p.stop()
 
 
 
