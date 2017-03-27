@@ -18,7 +18,7 @@ class MCSender(threading.Thread):
         self._ssrc = int(args[3])
         self._urltemplate = args[4]
         self._number = int(args[5])
-        self._period = int(args[6])
+        self._period = float(args[6])
         proxy_handler = urllib2.ProxyHandler({'http': args[7]} if args[7] != "" else {})
         self._opener = urllib2.build_opener(proxy_handler)
         self._logger = args[8]

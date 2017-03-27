@@ -2,9 +2,7 @@ import u2m
 
 import logging
 import argparse
-from xml.etree.ElementTree import ParseError
 import ConfigParser
-import urllib2
 
 parser = argparse.ArgumentParser(description='...')
 parser.add_argument('--log', help='log file, use - for stdout [default: %(default)s]', default="-")
@@ -18,7 +16,6 @@ args = parser.parse_args()
 if args.log != "-":
   logging.basicConfig(filename=args.log)
 logging.basicConfig(level=getattr(logging, args.severity.upper(), None))
-
 
 
 if __name__ == '__main__':

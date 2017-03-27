@@ -1,18 +1,11 @@
-import urllib2
 import xml.etree.ElementTree as ET
-import string
-import os
-import time
-import xml.dom.minidom
 import ConfigParser
 import re
-
-
 from mcsender import *
 
 class MPDParser:
-    mpdurl=""
-    mpdroot=None
+    mpdurl = ""
+    mpdroot = None
 
     def __init__(self, mpdurl, proxy, logger, config):
         self.mpdurl = mpdurl
@@ -20,7 +13,6 @@ class MPDParser:
         self._logger = logger
         self._config = config
         self._jobs = []
-        self._run = True
 
     def _str2unixtime(self, timestr):
         if timestr == None or timestr == "":
@@ -41,9 +33,7 @@ class MPDParser:
     def _calculateNumberNow(self, timescale, duration, startNumber, availabilityStartTime, suggestedPresentationDelay=None):
 
         offset_tick = (time.time() + time.timezone - self._str2unixtime(availabilityStartTime) - self._str2unixtime(suggestedPresentationDelay)) * int(timescale)
-        offset_number = offset_tick / int(duration) + int(startNumber) - 1
-        print int(offset_number)
-        return offset_number
+        return offset_tick / int(duration) + int(startNumber) - 1
 
     def fetch(self):
         proxy_handler = urllib2.ProxyHandler({'http': self._proxy} if self._proxy != "" else {})
@@ -62,12 +52,10 @@ class MPDParser:
 
         #check xml #TODO: use xslt...
         if 'profiles' not in self.mpdroot.attrib:
-            self._run = False
             raise Exception("invalid mpd, no profile")
         self._logger.debug("MPD %s found" % self.mpdroot.attrib['profiles'])
 
         if 'type' not in self.mpdroot.attrib or self.mpdroot.attrib['type']!="dynamic":
-            self._run = False
             raise Exception("Non dynamic MPD")
         self._logger.debug("Dynamic mpd found")
 
@@ -94,15 +82,18 @@ class MPDParser:
                         self._jobs.append(p)
                         p.start()
                     except ConfigParser.NoSectionError:
+                        # if representation id not in config, skip representation
                         pass
 
     def join(self):
         for p in self._jobs:
-            p.join()
+            if p.isAlive():
+                p.join()
 
     def stop(self):
         for p in self._jobs:
-            p.stop()
+            if p.isAlive():
+                p.stop()
 
 
 
