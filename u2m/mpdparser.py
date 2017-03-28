@@ -75,7 +75,6 @@ class MPDParser:
                         mcast_port = self._config.get(representation.attrib['id'], 'mcast_port')
                         ssrc = self._config.get(representation.attrib['id'], 'ssrc')
                         urltemplate = os.path.dirname(self._config.get('general','mpd')) + "/" + segmenttemplate.attrib['media']
-                        self._logger.info("Sending representation '%s'" % representation.attrib['id'])
                         p = MCSender(name="u2m-%s" % representation.attrib['id'], args=(mcast_grp,          # 0
                                                                                         int(mcast_port),    # 1
                                                                                         int(ssrc),          # 2
