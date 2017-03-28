@@ -105,16 +105,11 @@ class MCSender(threading.Thread):
     def run(self):
         self._run = True
         self._mytimer(time.time())
-        try:
-            self._logger.info("Sending representation '%s' to %s:%d (ssrc: %d)" % (self._representationid, self._mcast_grp, self._mcast_port, self._ssrc))
-            while self._run:
-                time.sleep(0.1)
-        except KeyboardInterrupt:
-            self._run = False
-            self._timer.stop()
-            self._opener.close()
+        self._logger.info("Sending representation '%s' to %s:%d (ssrc: %d)" % (self._representationid, self._mcast_grp, self._mcast_port, self._ssrc))
+        while self._run:
+            time.sleep(1)
 
     def stop(self):
         self._run = False
-        self._timer.stop()
+        self._timer.cancel()
         self._opener.close()

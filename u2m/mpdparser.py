@@ -4,10 +4,11 @@ import re
 from mcsender import *
 
 class MPDParser:
-    mpdroot = None
 
     def __init__(self, proxy, logger, configfp):
         self._proxy = proxy
+        proxy_handler = urllib2.ProxyHandler({'http': self._proxy} if self._proxy != "" else {})
+        self._opener = urllib2.build_opener(proxy_handler)
         self._logger = logger
         self._config = ConfigParser.ConfigParser()
         self._config.readfp(configfp)
@@ -35,31 +36,28 @@ class MPDParser:
         return offset_tick / int(duration) + int(startNumber) - 1
 
     def fetch(self):
-        proxy_handler = urllib2.ProxyHandler({'http': self._proxy} if self._proxy != "" else {})
-
         # get mpd
         self._logger.debug("Open manifest file '%s'" % self._config.get('general','mpd'))
-        opener = urllib2.build_opener(proxy_handler)
-        ret = opener.open(self._config.get('general','mpd'))
+        ret = self._opener.open(self._config.get('general','mpd'))
         mpd = ret.read()
-        opener.close()
+        self._opener.close()
 
         #parse mpd
-        self.mpdroot = ET.fromstring(mpd)
+        mpdroot = ET.fromstring(mpd)
         #print xml.dom.minidom.parseString(ET.tostring(self.mpdroot, 'utf-8')).toprettyxml(indent="  ")
 
         #check xml #TODO: use xslt...
-        if 'profiles' not in self.mpdroot.attrib:
+        if 'profiles' not in mpdroot.attrib:
             raise Exception("invalid mpd, no profile")
-        self._logger.debug("MPD %s found" % self.mpdroot.attrib['profiles'])
+        self._logger.debug("MPD %s found" % mpdroot.attrib['profiles'])
 
-        if 'type' not in self.mpdroot.attrib or self.mpdroot.attrib['type']!="dynamic":
+        if 'type' not in mpdroot.attrib or mpdroot.attrib['type']!="dynamic":
             raise Exception("Non dynamic MPD")
         self._logger.debug("Dynamic mpd found")
 
         #find repres
         ns = {'ns': 'urn:mpeg:dash:schema:mpd:2011'}
-        for period in self.mpdroot.findall('.//ns:Period', ns):
+        for period in mpdroot.findall('.//ns:Period', ns):
             self._logger.debug("Period '%s' found" % (period.attrib['id'] if 'id' in period.attrib else "--"))
 
             for adaptationset in period.findall('.//ns:AdaptationSet', ns):
@@ -80,7 +78,7 @@ class MPDParser:
                                                                                         int(ssrc),          # 2
                                                                                         urltemplate,        # 3
                                                                                         representation.attrib['id'],    #4
-                                                                                        self._calculateNumberNow(segmenttemplate.attrib['timescale'], segmenttemplate.attrib['duration'], segmenttemplate.attrib['startNumber'], self.mpdroot.attrib['availabilityStartTime'], self.mpdroot.attrib['suggestedPresentationDelay'] if 'suggestedPresentationDelay' in self.mpdroot.attrib else None),
+                                                                                        self._calculateNumberNow(segmenttemplate.attrib['timescale'], segmenttemplate.attrib['duration'], segmenttemplate.attrib['startNumber'], mpdroot.attrib['availabilityStartTime'], mpdroot.attrib['suggestedPresentationDelay'] if 'suggestedPresentationDelay' in mpdroot.attrib else None),
                                                                                         int(segmenttemplate.attrib['duration'])/int(segmenttemplate.attrib['timescale']),
                                                                                         self._proxy,        # 7
                                                                                         self._logger        # 8
@@ -91,9 +89,8 @@ class MPDParser:
                         pass    # if representationid is not in config, do not send representation
 
     def join(self):
-        for p in self._jobs:
-            if p.isAlive():
-                p.join()
+        while any(p.isAlive and p.join(1) == None for p in self._jobs):
+            pass
 
     def stop(self):
         for p in self._jobs:
