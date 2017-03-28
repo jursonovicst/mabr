@@ -81,10 +81,11 @@ class MPDParser:
                                                                                         self._calculateNumberNow(segmenttemplate.attrib['timescale'], segmenttemplate.attrib['duration'], segmenttemplate.attrib['startNumber'], mpdroot.attrib['availabilityStartTime'], mpdroot.attrib['suggestedPresentationDelay'] if 'suggestedPresentationDelay' in mpdroot.attrib else None),
                                                                                         int(segmenttemplate.attrib['duration'])/int(segmenttemplate.attrib['timescale']),
                                                                                         self._proxy,        # 7
-                                                                                        self._logger        # 8
+                                                                                        self._logger,       # 8
+                                                                                        int(representation.attrib['bandwidth'])  #9
                                                                                        ))
-                        self._jobs.append(p)
                         p.start()
+                        self._jobs.append(p)
                     except ConfigParser.NoSectionError:
                         pass    # if representationid is not in config, do not send representation
 

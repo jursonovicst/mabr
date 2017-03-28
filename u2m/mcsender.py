@@ -22,8 +22,19 @@ class MCSender(threading.Thread):
         proxy_handler = urllib2.ProxyHandler({'http': args[7]} if args[7] != "" else {})
         self._opener = urllib2.build_opener(proxy_handler)
         self._logger = args[8]
+        self._bandwidth = int(args[9])
 
-        self._timer = None
+        self._fetchtimer = None     # trigger segment fetch
+        self._sendtimer = None      # trigger RTP send (ratelimit)
+
+        # Tokenbank
+        self._tokensem = threading.BoundedSemaphore(10)
+        self._tokentimer = None
+
+        # Packet buffer
+        self._jobbuffer = []
+        self._jobsem = threading.Semaphore(0)
+
         self._run = False
         self._timeoffset_ut = time.time()
 
@@ -43,16 +54,29 @@ class MCSender(threading.Thread):
         self._rtp_pkt.ssrc=self._ssrc
         self._rtp_pkt.ehid=12
 
+
+    def _tokencallback(self, period, fireat_wc):
+        drift = time.time() - fireat_wc
+        self._tokentimer = threading.Timer(period - drift if drift < period else 0, MCSender._tokencallback, [self, period, fireat_wc + period])
+        self._tokentimer.start()
+
+        try:
+            self._tokensem.release()
+        except ValueError:
+            pass
+
+
     def _calctimestamp(self,resolution):
         return int((time.time()-self._timeoffset_ut) * resolution)
 
-    def _mytimer(self, fireat_wc):
+
+    def _fetchcallback(self, fireat_wc):
         message = ""
         try:
             # 0. set next timer and compensate drift from wc(wallclock)
             drift = time.time() - fireat_wc
-            self._timer = threading.Timer(self._period - drift, MCSender._mytimer, [self, fireat_wc + self._period])
-            self._timer.start()
+            self._fetchtimer = threading.Timer(self._period - drift, MCSender._fetchcallback, [self, fireat_wc + self._period])
+            self._fetchtimer.start()
 
             # 1. Load segment
             url = string.replace(self._urltemplate, "$Number$", str(self._number))
@@ -85,8 +109,10 @@ class MCSender(threading.Thread):
                 if buff == "":
                     self._rtp_pkt.m = 1 # Last packet, set marker
 
-                #send it out
-                sent = self._sock.sendto(str(self._rtp_pkt), (self._mcast_grp, self._mcast_port))
+                #put it into the jonbuffer
+                self._jobbuffer.append(str(self._rtp_pkt))
+                self._jobsem.release()
+                #self._sock.sendto(str(self._rtp_pkt), (self._mcast_grp, self._mcast_port))
 
                 # update sequence number
                 numberofsentpackets += 1
@@ -104,12 +130,17 @@ class MCSender(threading.Thread):
 
     def run(self):
         self._run = True
-        self._mytimer(time.time())
+        self._fetchcallback(time.time())
+        self._tokencallback(1500.0*8.0/self._bandwidth / 1.2, time.time())
         self._logger.info("Sending representation '%s' to %s:%d (ssrc: %d)" % (self._representationid, self._mcast_grp, self._mcast_port, self._ssrc))
         while self._run:
-            time.sleep(1)
+            # Empty jobbuffer if any
+            self._tokensem.acquire()
+            self._jobsem.acquire()
+            self._sock.sendto(self._jobbuffer.pop(0), (self._mcast_grp, self._mcast_port))
 
     def stop(self):
         self._run = False
-        self._timer.cancel()
+        self._tokentimer.cancel()
+        self._fetchtimer.cancel()
         self._opener.close()
