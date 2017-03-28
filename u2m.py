@@ -3,6 +3,7 @@ import u2m
 import logging
 import argparse
 import ConfigParser
+import time
 
 parser = argparse.ArgumentParser(description='...')
 parser.add_argument('--log', help='log file, use - for stdout [default: %(default)s]', default="-")
@@ -30,16 +31,17 @@ if __name__ == '__main__':
             mpd = u2m.MPDParser(args.mpd, args.proxy, logging, config)
             mpd.fetch()
 
-            #this will block
+            # this will block
             mpd.join()
         except KeyboardInterrupt:
             run = False
-#        except Exception as e:
-#            logging.warning("oops: '%s', respawn..." % e.message)
+        except Exception as e:
+            logging.error("oops (" + e.message + "), respawn in 10 sec...")
+            time.sleep(10)
         # except (ParseError, TypeError, urllib2.HTTPError) as err:
             # logging.error("oops: " + str(err))
-        # except Exception as e:
-            # logging.error("oops ("+type(e).__name__+"):'" + e.args + "'")
+        #except Exception as e:
+        #    logging.error("oops ("+type(e).__name__+"):'" + e.args + "', respawn...")
         finally:
             if mpd is not None:
                 mpd.stop()

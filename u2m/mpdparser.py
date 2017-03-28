@@ -76,9 +76,17 @@ class MPDParser:
                         mcast_grp = self._config.get(representation.attrib['id'], 'mcast_grp')
                         mcast_port = self._config.get(representation.attrib['id'], 'mcast_port')
                         ssrc = self._config.get(representation.attrib['id'], 'ssrc')
-                        url = os.path.dirname(self.mpdurl) + "/" + string.replace(segmenttemplate.attrib['media'],"$RepresentationID$",representation.attrib['id'])
+                        urltemplate = os.path.dirname(self.mpdurl) + "/" + segmenttemplate.attrib['media']
                         self._logger.info("Sending representation '%s'" % representation.attrib['id'])
-                        p = MCSender(name="u2m-%s" % representation.attrib['id'], args=(period.attrib['id'], mcast_grp, int(mcast_port), int(ssrc), url, self._calculateNumberNow(segmenttemplate.attrib['timescale'], segmenttemplate.attrib['duration'], segmenttemplate.attrib['startNumber'], self.mpdroot.attrib['availabilityStartTime'], self.mpdroot.attrib['suggestedPresentationDelay'] if 'suggestedPresentationDelay' in self.mpdroot.attrib else None), int(segmenttemplate.attrib['duration'])/int(segmenttemplate.attrib['timescale']), self._proxy, self._logger))
+                        p = MCSender(name="u2m-%s" % representation.attrib['id'], args=(mcast_grp,          # 0
+                                                                                        int(mcast_port),    # 1
+                                                                                        int(ssrc),          # 2
+                                                                                        urltemplate,        # 3
+                                                                                        representation.attrib['id'],    #4
+                                                                                        self._calculateNumberNow(segmenttemplate.attrib['timescale'], segmenttemplate.attrib['duration'], segmenttemplate.attrib['startNumber'], self.mpdroot.attrib['availabilityStartTime'], self.mpdroot.attrib['suggestedPresentationDelay'] if 'suggestedPresentationDelay' in self.mpdroot.attrib else None),
+                                                                                        int(segmenttemplate.attrib['duration'])/int(segmenttemplate.attrib['timescale']),
+                                                                                        self._proxy,
+                                                                                        self._logger))
                         self._jobs.append(p)
                         p.start()
                     except ConfigParser.NoSectionError:

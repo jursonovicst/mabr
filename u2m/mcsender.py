@@ -12,11 +12,11 @@ class MCSender(threading.Thread):
 
     def __init__(self, group=None, target=None, name=None, args=(), kwarggs=None):
         threading.Thread.__init__(self, group, target, name, args, kwarggs)
-        self._periodid = args[0]
-        self._mcast_grp = args[1]
-        self._mcast_port = int(args[2])
-        self._ssrc = int(args[3])
-        self._urltemplate = args[4]
+        self._mcast_grp = args[0]
+        self._mcast_port = int(args[1])
+        self._ssrc = int(args[2])
+        self._urltemplate = string.replace(args[3],"$RepresentationID$",args[4])
+        self._representationid = args[4]
         self._number = int(args[5])
         self._period = float(args[6])
         proxy_handler = urllib2.ProxyHandler({'http': args[7]} if args[7] != "" else {})
@@ -63,32 +63,35 @@ class MCSender(threading.Thread):
             message += " HTTP %s" % ret.getcode()
 
             #send it out
-                        #ADSL   IP  UDP RTP
-            mtu=1500    -4      -20 -8  -100
+            representationid_padded = self._representationid + ("\0" * ((4 - len(self._representationid) % 4) % 4))
+                        #ADSL   IP  UDP RTP RTPe    RTPeh
+            mtu = 1500  -4      -20 -8  -12 -4      -12-len(representationid_padded)
             readpos = 0
             numberofsentpackets = 0
             buff=ret.read(mtu)
-            self._rtp_pkt.m = 1
+            self._rtp_pkt.m = 0
             self._rtp_pkt.ts = self._calctimestamp(90000)
             while buff != "":
-                # update sequence number
-                self._rtp_pkt.seq = (self._rtp_pkt.seq + 1) % 65536
-
                 #add retransmission information
-                self._rtp_pkt.eh = struct.pack('!I', readpos) + struct.pack('!I', readpos+len(buff)-1) + url + ("." * (len(url) % 4))   #TODO: add '\0' instead of '.'
+                self._rtp_pkt.eh = struct.pack('!I', readpos) + struct.pack('!I', readpos+len(buff)-1) + struct.pack('!I', self._number) + representationid_padded
                 self._rtp_pkt.ehlen = len(self._rtp_pkt.eh) / 4
 
                 #copy data
                 self._rtp_pkt.data = buff
 
+                #next packet
+                readpos += len(buff)
+                buff = ret.read(mtu)
+                if buff == "":
+                    self._rtp_pkt.m = 1 # Last packet, set marker
+
                 #send it out
                 sent = self._sock.sendto(str(self._rtp_pkt), (self._mcast_grp, self._mcast_port))
 
-                #next packet
-                readpos += len(buff)
+                # update sequence number
                 numberofsentpackets += 1
-                buff = ret.read(mtu)
-                self._rtp_pkt.m = 0
+                self._rtp_pkt.seq = (self._rtp_pkt.seq + 1) % 65536
+
 
             message += " (%d packets)" % numberofsentpackets
 
