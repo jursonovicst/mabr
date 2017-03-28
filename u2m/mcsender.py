@@ -131,7 +131,7 @@ class MCSender(threading.Thread):
     def run(self):
         self._run = True
         self._fetchcallback(time.time())
-        self._tokencallback(1500.0*8.0/self._bandwidth / 1.2, time.time())
+        self._tokencallback(1500.0*8.0/self._bandwidth / 1.1, time.time())
         self._logger.info("Sending representation '%s' to %s:%d (ssrc: %d)" % (self._representationid, self._mcast_grp, self._mcast_port, self._ssrc))
         while self._run:
             # Empty jobbuffer if any
