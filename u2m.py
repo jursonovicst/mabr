@@ -10,7 +10,7 @@ parser.add_argument('--log', help='log file, use - for stdout [default: %(defaul
 parser.add_argument('--proxy', help='HTTP proxy for stream ingest, use - for None [default: %(default)s]', default="")
 parser.add_argument('--severity', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
                     help='Log severity [default: %(default)s]', default="INFO")
-parser.add_argument('--config', type=argparse.FileType('r'), help='configfile to  [default:  %(default)', required=True)
+parser.add_argument('--config', type=argparse.FileType('r'), help='configfile', required=True)
 parser.add_argument('mpd', help='mpd file to open')
 args = parser.parse_args()
 
@@ -35,7 +35,7 @@ if __name__ == '__main__':
         except KeyboardInterrupt:
             run = False
         except Exception as e:
-            logging.error("oops (" + e.message + "), respawn in 10 sec...")
+            logging.warning("oops (" + e.message + "), respawn in 10 sec...")
             time.sleep(10)
         # except (ParseError, TypeError, urllib2.HTTPError) as err:
             # logging.error("oops: " + str(err))

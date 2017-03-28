@@ -47,3 +47,23 @@ class MPDParser:
                     multicasts.append([addr,int(port)])
 
         return multicasts
+
+    def geturltemplates(self):
+        if self._mpdroot is None:
+            self._loadmpd()
+
+        # find url templates
+        urltemplates = []
+        for period in self._mpdroot.findall('.//ns:Period', MPDParser._ns):
+            for adaptationset in period.findall('.//ns:AdaptationSet', MPDParser._ns):
+                for segmenttemplate in adaptationset.findall('.//ns:SegmentTemplate', MPDParser._ns):
+                    urltemplates.append(segmenttemplate.attrib['media'])
+
+        return urltemplates
+
+    def geturltemplatefor(self, representationid):
+        if self._mpdroot is None:
+            self._loadmpd()
+
+        segmenttemplate = self._mpdroot.find(".//ns:AdaptationSet/ns:Representation[@id='%s']/../ns:SegmentTemplate" % representationid, MPDParser._ns)
+        return segmenttemplate.attrib['media']
