@@ -10,8 +10,7 @@ parser.add_argument('--log', help='log file, use - for stdout [default: %(defaul
 parser.add_argument('--proxy', help='HTTP proxy for stream ingest, use - for None [default: %(default)s]', default="")
 parser.add_argument('--severity', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
                     help='Log severity [default: %(default)s]', default="INFO")
-parser.add_argument('--config', type=argparse.FileType('r'), help='configfile', required=True)
-parser.add_argument('mpd', help='mpd file to open')
+parser.add_argument('CONFIG', type=argparse.FileType('r'), help='Config to intercept')
 args = parser.parse_args()
 
 if args.log != "-":
@@ -21,11 +20,8 @@ logging.basicConfig(level=getattr(logging, args.severity.upper(), None))
 
 if __name__ == '__main__':
 
-    config = ConfigParser.RawConfigParser()
-    config.readfp(args.config)
-
     run = True
-    mpd = u2m.MPDParser(args.mpd, args.proxy, logging, config)
+    mpd = u2m.MPDParser(args.proxy, logging, args.CONFIG)
     while run:
         try:
             mpd.fetch()

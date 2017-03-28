@@ -4,14 +4,13 @@ import re
 from mcsender import *
 
 class MPDParser:
-    mpdurl = ""
     mpdroot = None
 
-    def __init__(self, mpdurl, proxy, logger, config):
-        self.mpdurl = mpdurl
+    def __init__(self, proxy, logger, configfp):
         self._proxy = proxy
         self._logger = logger
-        self._config = config
+        self._config = ConfigParser.ConfigParser()
+        self._config.readfp(configfp)
         self._jobs = []
 
     def _str2unixtime(self, timestr):
@@ -39,9 +38,9 @@ class MPDParser:
         proxy_handler = urllib2.ProxyHandler({'http': self._proxy} if self._proxy != "" else {})
 
         # get mpd
-        self._logger.debug("Open manifest file '%s'" % self.mpdurl)
+        self._logger.debug("Open manifest file '%s'" % self._config.get('general','mpd'))
         opener = urllib2.build_opener(proxy_handler)
-        ret = opener.open(self.mpdurl)
+        ret = opener.open(self._config.get('general','mpd'))
         mpd = ret.read()
         opener.close()
 
@@ -75,7 +74,7 @@ class MPDParser:
                         mcast_grp = self._config.get(representation.attrib['id'], 'mcast_grp')
                         mcast_port = self._config.get(representation.attrib['id'], 'mcast_port')
                         ssrc = self._config.get(representation.attrib['id'], 'ssrc')
-                        urltemplate = os.path.dirname(self.mpdurl) + "/" + segmenttemplate.attrib['media']
+                        urltemplate = os.path.dirname(self._config.get('general','mpd')) + "/" + segmenttemplate.attrib['media']
                         self._logger.info("Sending representation '%s'" % representation.attrib['id'])
                         p = MCSender(name="u2m-%s" % representation.attrib['id'], args=(mcast_grp,          # 0
                                                                                         int(mcast_port),    # 1
