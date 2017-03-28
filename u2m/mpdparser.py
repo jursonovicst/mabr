@@ -45,7 +45,6 @@ class MPDParser:
         mpd = ret.read()
         opener.close()
 
-
         #parse mpd
         self.mpdroot = ET.fromstring(mpd)
         #print xml.dom.minidom.parseString(ET.tostring(self.mpdroot, 'utf-8')).toprettyxml(indent="  ")
@@ -85,13 +84,13 @@ class MPDParser:
                                                                                         representation.attrib['id'],    #4
                                                                                         self._calculateNumberNow(segmenttemplate.attrib['timescale'], segmenttemplate.attrib['duration'], segmenttemplate.attrib['startNumber'], self.mpdroot.attrib['availabilityStartTime'], self.mpdroot.attrib['suggestedPresentationDelay'] if 'suggestedPresentationDelay' in self.mpdroot.attrib else None),
                                                                                         int(segmenttemplate.attrib['duration'])/int(segmenttemplate.attrib['timescale']),
-                                                                                        self._proxy,
-                                                                                        self._logger))
+                                                                                        self._proxy,        # 7
+                                                                                        self._logger        # 8
+                                                                                       ))
                         self._jobs.append(p)
                         p.start()
                     except ConfigParser.NoSectionError:
-                        # if representation id not in config, skip representation
-                        pass
+                        pass    # if representationid is not in config, do not send representation
 
     def join(self):
         for p in self._jobs:
@@ -102,6 +101,8 @@ class MPDParser:
         for p in self._jobs:
             if p.isAlive():
                 p.stop()
+        for p in self._jobs:
+            self._jobs.remove(p)
 
 
 

@@ -25,10 +25,9 @@ if __name__ == '__main__':
     config.readfp(args.config)
 
     run = True
-    mpd = None
+    mpd = u2m.MPDParser(args.mpd, args.proxy, logging, config)
     while run:
         try:
-            mpd = u2m.MPDParser(args.mpd, args.proxy, logging, config)
             mpd.fetch()
 
             # this will block
@@ -43,7 +42,6 @@ if __name__ == '__main__':
         #except Exception as e:
         #    logging.error("oops ("+type(e).__name__+"):'" + e.args + "', respawn...")
         finally:
-            if mpd is not None:
-                mpd.stop()
+            mpd.stop()
 
     logging.info("...exit")

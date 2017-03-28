@@ -1,4 +1,4 @@
-import os, signal
+import os
 import threading
 import time
 import string
@@ -43,31 +43,31 @@ class MCSender(threading.Thread):
         self._rtp_pkt.ssrc=self._ssrc
         self._rtp_pkt.ehid=12
 
-        test= str(self._rtp_pkt)
-
     def _calctimestamp(self,resolution):
         return int((time.time()-self._timeoffset_ut) * resolution)
 
     def _mytimer(self, fireat_wc):
-        # set next timer and compensate drift from wc(wallclock)
-        drift = time.time() - fireat_wc
-        self._timer = threading.Timer(self._period - drift, MCSender._mytimer, [self, fireat_wc + self._period])
-        self._timer.start()
-
-        # 1. Load segment
-        url = string.replace(self._urltemplate, "$Number$", str(self._number))
-        message = "Accessing segment '%s':" % url
-        ret = None
+        message = ""
         try:
+            # 0. set next timer and compensate drift from wc(wallclock)
+            drift = time.time() - fireat_wc
+            self._timer = threading.Timer(self._period - drift, MCSender._mytimer, [self, fireat_wc + self._period])
+            self._timer.start()
+
+            # 1. Load segment
+            url = string.replace(self._urltemplate, "$Number$", str(self._number))
+            message = "Accessing segment '%s':" % url
+
             ret = self._opener.open(url)
             message += " HTTP %s" % ret.getcode()
 
-            #send it out
+            # 2. send it out
             representationid_padded = self._representationid + ("\0" * ((4 - len(self._representationid) % 4) % 4))
                         #ADSL   IP  UDP RTP RTPe    RTPeh
             mtu = 1500  -4      -20 -8  -12 -4      -12-len(representationid_padded)
             readpos = 0
             numberofsentpackets = 0
+
             buff=ret.read(mtu)
             self._rtp_pkt.m = 0
             self._rtp_pkt.ts = self._calctimestamp(90000)
@@ -109,11 +109,11 @@ class MCSender(threading.Thread):
             while self._run:
                 time.sleep(0.1)
         except KeyboardInterrupt:
-            self._timer.stop()
             self._run = False
+            self._timer.stop()
             self._opener.close()
 
     def stop(self):
-        self._timer.stop()
         self._run = False
+        self._timer.stop()
         self._opener.close()
