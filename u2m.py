@@ -13,7 +13,7 @@ parser.add_argument('CONFIG', type=argparse.FileType('r'), help='config file')
 args = parser.parse_args()
 
 if args.log != "-":
-  logging.basicConfig(filename=args.log)
+    logging.basicConfig(filename=args.log)
 logging.basicConfig(level=getattr(logging, args.severity.upper(), None))
 
 
