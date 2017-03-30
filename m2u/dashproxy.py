@@ -89,6 +89,7 @@ def MakeHandlerClass(logger, channels, memcachedaddress, proxy, fqdn, cdn):
             # Check for multicast
             elif (True if re.match(pattern, self.path) else False for pattern in self._multicastdelivery):
                 self._logger.debug("multicast: '%s'" % self.path)
+                self.passthrough(sourceurl)
 
             # Passthrough
             else:
@@ -123,8 +124,8 @@ def MakeHandlerClass(logger, channels, memcachedaddress, proxy, fqdn, cdn):
                 res = opener.open(url)
 
                 self.send_response(res.getcode())
-                for header in res.info():
-                    self.send_header(header[0], header[1])
+                for key in res.info():
+                    self.send_header(key, res.info()[key])
                 self.end_headers()
                 buff = res.read()
                 self.wfile.write(buff)
