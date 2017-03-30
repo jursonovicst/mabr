@@ -1,1 +1,1 @@
-c:\Python27\python.exe C:\Users\A9423340\PycharmProjects\mabr\u2m.py --severity DEBUG --proxy http://10.35.3.35:3128 --config ard.conf http://irtdashreference-i.akamaihd.net/dash/live/901161/bfs/manifestARD.mpd
+c:\Python27\python.exe C:\Users\A9423340\PycharmProjects\mabr\u2m.py --severity DEBUG --proxy http://10.35.3.35:3128 ard.conf
