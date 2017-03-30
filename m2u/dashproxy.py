@@ -10,7 +10,7 @@ from receiver import Receiver
 from urlparse import urlparse
 import time
 
-def MakeHandlerClass(logger, channels, memcachedaddress, proxy):
+def MakeHandlerClass(logger, channels, memcachedaddress, proxy, fqdn, cdn):
     class CustomHandler(BaseHTTPRequestHandler, object):
 
         _urltemplates = []
@@ -28,36 +28,52 @@ def MakeHandlerClass(logger, channels, memcachedaddress, proxy):
             self._memcachedaddress = memcachedaddress
             self._memcached = memcache.Client([memcachedaddress], debug=0)
             self._proxy = proxy
+            self._fqdn = fqdn
+            self._cdn = cdn
 
             self._channels = channels
 
             self.__representationid = ''
             self._ssrc = None
 
+            self._multicastdelivery = []
+
             super(CustomHandler, self).__init__(*args, **kwargs)
 
         def do_GET(self):
 
-            #Check if Host is in allowed FQDNs
+            #Check Host header
             if 'Host' not in self.headers:
                 self.send_response(400)
                 self.wfile.write("Ho Host header specified.")
                 self._logger.warning("Ho Host header specified.")
                 return
 
-            url = "http://%s%s" % (self.headers['Host'], self.path)
+            if self.headers['Host'] != self._fqdn:
+                self.send_response(401)
+                self.wfile.write("FQDN '%s' not allowed to proxy." % self.headers['Host'])
+                self._logger.warning("FQDN '%s' not allowed to proxy." % self.headers['Host'])
+                return
 
-            if any(url == ch.getMPDUrl() for ch in self._channels):
-                # mpd
-                self._logger.debug("Parse MPD on '%s'" %url)
+            requesturl = 'http://' + self.headers['Host'] + self.path
+            sourceurl =  'http://' + self._cdn + self.path
+
+            channel = next((ch for ch in self._channels if ch.getMPDPath() == self.path), None)
+
+            if channel is not None:
+                # match on one channel
+                self._logger.debug("parse: '%s'" % self.path)
 
 
                 # Parse mpd
-                mpd = self.passthrough(url)
+                mpd = self.passthrough(sourceurl)
                 mpdparser = dash.MPDParser(mpd)
 
-                # Figure out url templates
-                mpdparser.geturltemplatefor(5)
+                # Figure out url templates for multicast
+                for representationid in channel.getRepresentationIDs():
+                    pathpattern = os.path.dirname(self.path) + '/' + mpdparser.geturltemplatefor(representationid).replace('$RepresentationID$', representationid).replace('.','\.').replace('$Number$', '\d+')
+                    self._logger.debug("Add '%s' pattern for multicast delivery." % pathpattern)
+                    self._multicastdelivery.append(pathpattern)
 #                    if(fqdn + dirname + urltemplate) not in CustomHandler._urltemplates:
 #                        CustomHandler._urltemplates.append(fqdn + dirname + urltemplate)
 #                    self._logger.debug("URLtemplate %s added" % (fqdn + dirname + urltemplate))
@@ -71,12 +87,13 @@ def MakeHandlerClass(logger, channels, memcachedaddress, proxy):
                 #        p.start()
 
             # Check for multicast
-            elif url in self._urltemplates:
-                self._logger.debug("URL '%s' matches urltemplate" % url)
+            elif (True if re.match(pattern, self.path) else False for pattern in self._multicastdelivery):
+                self._logger.debug("multicast: '%s'" % self.path)
 
             # Passthrough
             else:
-                self.passthrough(url)
+                self._logger.debug("passthrough: '%s'" % self.path)
+                self.passthrough(sourceurl)
 
 
                 #         elif ext == ".m4s" or ext == ".mp4":
@@ -141,8 +158,7 @@ class Channel:
     def __init__(self, fp):
         config = ConfigParser.ConfigParser()
         config.readfp(fp)
-        self._mpdurl = config.get('general', 'mpd')
-
+        self._url = urlparse(config.get('general', 'mpd'))
         self._data = {}
 
         for section in config.sections():
@@ -151,16 +167,15 @@ class Channel:
 
             self._data[section] = (config.get(section, 'mcast_grp'), config.get(section, 'mcast_port'), config.get(section, 'ssrc'))
 
-    def getFQDN(self):
-        url = urlparse(self._mpdurl)
-        return url.hostname
-
     def getMPDUrl(self):
-        return self._mpdurl
+        return self._url.scheme + "://" + self._url.netloc + self._url.path + self._url.query
+
+    def getMPDPath(self):
+        return self._url.path
 
 
-
-
+    def getRepresentationIDs(self):
+        return list(self._data)
 
 class DASHProxy(threading.Thread):
 
@@ -174,6 +189,8 @@ class DASHProxy(threading.Thread):
         configfps = args[3]
         self._memcached = args[4]
         self._proxy = args[5]
+        self._fqdn = args[6]
+        self._cdn = args[7]
 
         self._channels = []
         for configfp in configfps:
@@ -189,7 +206,7 @@ class DASHProxy(threading.Thread):
         self._logger.info("Start handling requests on %s:%d" %(self._ip, self._port))
         while self._run:
             try:
-                myhandler = MakeHandlerClass(self._logger, self._channels, self._memcached, self._proxy)
+                myhandler = MakeHandlerClass(self._logger, self._channels, self._memcached, self._proxy, self._fqdn, self._cdn)
                 self._server = HTTPServer((self._ip, self._port), myhandler)
 
                 # This will block and periodically check the shutdown signal

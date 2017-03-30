@@ -37,8 +37,8 @@ class MPDParser:
 
     def fetch(self):
         # get mpd
-        self._logger.debug("Open manifest file '%s'" % self._config.get('general','origin'))
-        ret = self._opener.open(self._config.get('general','origin'))
+        self._logger.debug("Open manifest file '%s'" % self._config.get('general','mpd'))
+        ret = self._opener.open(self._config.get('general','mpd'))
         mpd = ret.read()
         self._opener.close()
 
@@ -72,7 +72,7 @@ class MPDParser:
                         mcast_grp = self._config.get(representation.attrib['id'], 'mcast_grp')
                         mcast_port = self._config.get(representation.attrib['id'], 'mcast_port')
                         ssrc = self._config.get(representation.attrib['id'], 'ssrc')
-                        urltemplate = os.path.dirname(self._config.get('general','origin')) + "/" + segmenttemplate.attrib['media']
+                        urltemplate = os.path.dirname(self._config.get('general','mpd')) + "/" + segmenttemplate.attrib['media']
                         p = MCSender(name="u2m-%s" % representation.attrib['id'], args=(mcast_grp,          # 0
                                                                                         int(mcast_port),    # 1
                                                                                         int(ssrc),          # 2

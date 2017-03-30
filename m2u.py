@@ -13,6 +13,8 @@ parser.add_argument('--memcached', help='memcache to use, provide IP:PORT or UNI
 parser.add_argument('--proxy', help='HTTP proxy for stream ingest, use - for None [default: %(default)s]', default="")
 parser.add_argument('--ip', help='IP address to listen on [default: ""', default="0.0.0.0")
 parser.add_argument('--port', type=int, help='TCP port to listen on [default: ""', default="80")
+parser.add_argument('--fqdn', help='FQDN listen on', required=True)
+parser.add_argument('--cdn', help='FQDN of the CDN to use', required=True)
 
 parser.add_argument('CONFIG', type=argparse.FileType('r'), nargs='+', help='Configs to intercept')
 args = parser.parse_args()
@@ -29,7 +31,7 @@ if __name__ == '__main__':
     p = None
     while run:
         try:
-            p = m2u.DASHProxy(name="Test", args=(logging, args.ip, args.port, args.CONFIG, args.memcached, args.proxy))
+            p = m2u.DASHProxy(name="Test", args=(logging, args.ip, args.port, args.CONFIG, args.memcached, args.proxy, args.fqdn, args.cdn))
             p.start()
 
             # This will block
