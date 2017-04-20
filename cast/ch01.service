@@ -1,0 +1,11 @@
+[Unit]
+Description = channel 01
+After = network.target
+[Service]
+WorkingDirectory = /home/cdn/cast
+ExecStartPre = /bin/mkdir -p output/ch01/
+ExecStart = /usr/local/bin/DashCast -v big_buck_bunny_1080p_h264.mov -conf big_buck_bunny_480p_stereo.conf -live-media -out output/ch01 -mpd ch01.mpd -log-file /var/log/dashcast/ch01.log
+User = cdn
+ExecStopPost = /bin/rm -rf output/ch01
+[Install]
+WantedBy = multi-user.target
