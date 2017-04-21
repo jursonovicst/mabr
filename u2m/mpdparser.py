@@ -18,6 +18,7 @@ class MPDParser:
         if timestr == None or timestr == "":
             return 0
 
+        # time is stored always in localtime
         try:
             return time.mktime(time.strptime(timestr, "%Y-%m-%dT%H:%M:%S.%fZ"))
         except ValueError:
@@ -25,7 +26,7 @@ class MPDParser:
                 return time.mktime(time.strptime(timestr, "%Y-%m-%dT%H:%M:%SZ"))
             except ValueError:
                 try:
-                    return time.mktime(time.strptime(timestr, "%Y-%m-%dT%H:%M:%S"))
+                    return time.mktime(time.strptime(timestr, "%Y-%m-%dT%H:%M:%S")) - time.timezone #This is in UTC, convert to localtime
                 except ValueError:
                     try:
                         match = re.search("PT(\d+(\.\d+)*)S", timestr)
