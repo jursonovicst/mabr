@@ -1,6 +1,6 @@
 import imp
 try:
-  imp.find_module('dpkt.rtp')
+  imp.find_module('dpkt')
 except ImportError:
   print("This scrypt requires dpkt.rtp python library, please install python-dpkt!")
   exit(1)
