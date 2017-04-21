@@ -7,6 +7,7 @@ import socket
 import random
 import rtpext
 import struct
+import re
 
 class MCSender(threading.Thread):
 
@@ -81,7 +82,8 @@ class MCSender(threading.Thread):
             self._fetchtimer.start()
 
             # 1. Load segment
-            url = string.replace(self._urltemplate, "$Number$", str(self._number))
+            #url = string.replace(self._urltemplate, "$Number$", str(self._number))     #changed to the following line to capture ffmpeg's %05d stuff...
+            url = re.sub("\$Number\$(?:%[0-9]+d)?", str(self._number), self._urltemplate)
             message = "Accessing segment '%s':" % url
 
             ret = self._opener.open(url)
