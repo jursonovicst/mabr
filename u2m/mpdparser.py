@@ -25,10 +25,13 @@ class MPDParser:
                 return time.mktime(time.strptime(timestr, "%Y-%m-%dT%H:%M:%SZ"))
             except ValueError:
                 try:
-                    match = re.search("PT(\d+(\.\d+)*)S", timestr)
-                    return float(match.group(1))
-                except:
-                    raise Exception("No matching timeformat for %s" % timestr)
+                    return time.mktime(time.strptime(timestr, "%Y-%m-%dT%H:%M:%S"))
+                except ValueError:
+                    try:
+                        match = re.search("PT(\d+(\.\d+)*)S", timestr)
+                        return float(match.group(1))
+                    except:
+                        raise Exception("No matching timeformat for %s" % timestr)
 
     def _calculateNumberNow(self, timescale, duration, startNumber, availabilityStartTime, suggestedPresentationDelay=None):
 
