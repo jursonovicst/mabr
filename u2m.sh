@@ -1,2 +1,2 @@
 #!/bin/bash
-/usr/bin/python2.7 u2m.py --severity DEBUG http://mabr-origin.atu0.org/mabr/ch01/ch01.mpd --config ch01.conf
+/usr/bin/python2.7 u2m.py --severity DEBUG --config ard.conf http://irtdashreference-i.akamaihd.net/dash/live/901161/bfs/manifestARD.mpd
