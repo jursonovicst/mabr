@@ -18,6 +18,7 @@ class MPDParser:
         if timestr == None or timestr == "":
             return 0
 
+        # time is stored always in localtime
         try:
             return time.mktime(time.strptime(timestr, "%Y-%m-%dT%H:%M:%S.%fZ"))
         except ValueError:
@@ -25,10 +26,13 @@ class MPDParser:
                 return time.mktime(time.strptime(timestr, "%Y-%m-%dT%H:%M:%SZ"))
             except ValueError:
                 try:
-                    match = re.search("PT(\d+(\.\d+)*)S", timestr)
-                    return float(match.group(1))
-                except:
-                    raise Exception("No matching timeformat for %s" % timestr)
+                    return time.mktime(time.strptime(timestr, "%Y-%m-%dT%H:%M:%S")) - time.timezone #This is in UTC, convert to localtime
+                except ValueError:
+                    try:
+                        match = re.search("PT(\d+(\.\d+)*)S", timestr)
+                        return float(match.group(1))
+                    except:
+                        raise Exception("No matching timeformat for %s" % timestr)
 
     def _calculateNumberNow(self, timescale, duration, startNumber, availabilityStartTime, suggestedPresentationDelay=None):
 
