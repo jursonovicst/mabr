@@ -1,4 +1,11 @@
+import imp
+try:
+  imp.find_module('dpkt.rtp')
+except ImportError:
+  print("This scrypt requires dpkt.rtp python library, please install python-dpkt!")
+  exit(1)
 from dpkt.rtp import RTP
+
 import socket, struct
 
 
