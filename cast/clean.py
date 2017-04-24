@@ -1,4 +1,5 @@
 import argparse
+import re
 import logging
 import os
 import time
@@ -9,13 +10,14 @@ parser.add_argument('--log', help='log file, use - for stdout [default: %(defaul
 parser.add_argument('--severity', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
                     help='log level [default: %(default)s]', default="INFO")
 parser.add_argument('--retention', type=int, help='Retention time in sec [default: %(default)s]', default=600)
+parser.add_argument('--match', help='regexp match for filenames', required=True)
 parser.add_argument('DIRECTORY', nargs='+', help='directory in which old segments are removed')
+
 args = parser.parse_args()
 
 if args.log != "-":
     logging.basicConfig(filename=args.log)
 logging.basicConfig(level=getattr(logging, args.severity.upper(), None))
-
 
 
 if __name__ == '__main__':
@@ -38,12 +40,15 @@ if __name__ == '__main__':
         now = time.time()
         for cdate, path in sorted(entries):
             if cdate < now - args.retention:
-                logging.info("File '%s' is expired (age is %ds), removing." % (path, now - cdate))
-                try:
-                    os.remove(path)
-                except Exception as e:
-                    logging.error("Oops: %s, skipping." % str(e))
+                if re.match(args.match,os.path.basename(path)) is not None:
+                    try:
+                        os.remove(path)
+                        logging.info("'%s' is expired (age is %ds), and matches, removed." % (path, now - cdate))
+                    except Exception as e:
+                        logging.error("Oops: cannot remoge file '%s': %s, skipping." % (path, str(e)))
+                else:
+                    logging.debug("'%s' does not match, skipping" % os.path.basename(path))
 
             else:
-                logging.debug("File '%s' is not yet expired (age is %ds), skipping." % (path, now - cdate))
+                logging.debug("'%s' is not yet expired (age is %ds), skipping." % (path, now - cdate))
 
