@@ -4,6 +4,9 @@ import logging
 import argparse
 import time
 
+import sys, traceback
+
+
 parser = argparse.ArgumentParser(description='...')
 parser.add_argument('--log', help='log file, use - for stdout [default: %(default)s]', default="-")
 parser.add_argument('--severity', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
@@ -34,14 +37,14 @@ if __name__ == '__main__':
             p = m2u.DASHProxy(name="Test", args=(logging, args.ip, args.port, args.CONFIG, args.memcached, args.proxy, args.fqdn, args.cdn))
             p.start()
 
-            # This will block
+            # This will block   #TODO: add timeout for join...
             p.join()
         except KeyboardInterrupt:
             run = False
         except Exception as e:
             logging.warning("oops: '%s', respawn in 10 sec..." % e.message)
+            logging.debug(traceback.format_exc())
             time.sleep(10)
-
         finally:
             # Respawn...
             if p is not None:

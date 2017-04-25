@@ -4,6 +4,8 @@ import logging
 import argparse
 import time
 
+import sys, traceback
+
 parser = argparse.ArgumentParser(description='...')
 parser.add_argument('--log', help='log file, use - for stdout [default: %(default)s]', default="-")
 parser.add_argument('--proxy', help='HTTP proxy for stream ingest', default="")
@@ -25,14 +27,16 @@ if __name__ == '__main__':
         try:
             mpd.fetch()
 
-            # this will block
+            # this will block   #TODO: add timeout for join...
             mpd.join()
         except KeyboardInterrupt:
             run = False
         except Exception as e:
-            logging.warning("Oops (" + e.message + "), respawn in 10 sec...")
+            logging.warning("Oops (%s), respawn in 10 sec..." % str(e))
+            logging.debug(traceback.format_exc())
             time.sleep(10)
         finally:
+            # Respawn...
             mpd.stop()
 
     logging.info("...exit")
