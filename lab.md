@@ -12,3 +12,5 @@ address=/harmonic/192.168.0.11
 | Stream | via origin | via CDN | via m2u |
 |---|---|---|---|
 |4k |http://harmonic/Content/DASH/Live/Channel(4K)/manifest.mpd|http://harmonic.dash-test02/Content/DASH/Live/Channel(4K)/manifest.mpd|http://generic-raspi/Content/DASH/Live/Channel(4K)/manifest.mpd|
+
+![t](https://github.com/jursonovicst/mabr/blob/master/docs/MPEG_DASH_multicast_v02.png)
