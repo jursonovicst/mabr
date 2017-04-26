@@ -34,10 +34,22 @@ class MPDParser:
                     except:
                         raise Exception("No matching timeformat for %s" % timestr)
 
-    def _calculateNumberNow(self, timescale, duration, startNumber, availabilityStartTime, suggestedPresentationDelay=None):
+    def _calculateLastNumber(self, timescale, duration, startNumber, availabilityStartTime, presentationTimeOffset=0, suggestedPresentationDelay=0):
 
-        offset_tick = (time.time() + time.timezone - self._str2unixtime(availabilityStartTime) - self._str2unixtime(suggestedPresentationDelay)) * int(timescale)
-        return offset_tick / int(duration) + int(startNumber) - 1
+        #offset_tick = (time.time() + time.timezone - self._str2unixtime(availabilityStartTime) - self._str2unixtime(suggestedPresentationDelay)) * int(timescale)
+        #return offset_tick / int(duration) + int(startNumber) - 1
+        return self._calculateNumber(time.time(), timescale, duration, startNumber, availabilityStartTime, presentationTimeOffset, suggestedPresentationDelay)
+
+    def _calculateNumber(self, at, timescale, duration, startNumber, availabilityStartTime, presentationTimeOffset=0, suggestedPresentationDelay=0):
+
+        self._logger.debug("at %d" % at)
+        self._logger.debug("timescale %d" % int(timescale))
+        self._logger.debug("duration %d" % int(duration))
+        self._logger.debug("startNumber %d" % int(startNumber))
+        self._logger.debug("availabilityStartTime %d" % self._str2unixtime(availabilityStartTime))
+        self._logger.debug("presentationTimeOffset %s" % presentationTimeOffset)
+        self._logger.debug("suggestedPresentationDelay %d" % self._str2unixtime(suggestedPresentationDelay))
+        return (time.time() - self._str2unixtime(availabilityStartTime) - int(duration) / int(timescale)) / (int(duration)/int(timescale)) + int(startNumber)
 
     def fetch(self):
         # get mpd
@@ -82,7 +94,7 @@ class MPDParser:
                                                                                         int(ssrc),          # 2
                                                                                         urltemplate,        # 3
                                                                                         representation.attrib['id'],    #4
-                                                                                        self._calculateNumberNow(segmenttemplate.attrib['timescale'], segmenttemplate.attrib['duration'], segmenttemplate.attrib['startNumber'], mpdroot.attrib['availabilityStartTime'], mpdroot.attrib['suggestedPresentationDelay'] if 'suggestedPresentationDelay' in mpdroot.attrib else None),
+                                                                                        self._calculateLastNumber(segmenttemplate.attrib['timescale'], segmenttemplate.attrib['duration'], segmenttemplate.attrib['startNumber'], mpdroot.attrib['availabilityStartTime'], mpdroot.attrib['presentationTimeOffset'] if 'presentationTimeOffset' in mpdroot.attrib else 0, mpdroot.attrib['suggestedPresentationDelay'] if 'suggestedPresentationDelay' in mpdroot.attrib else 0),
                                                                                         int(segmenttemplate.attrib['duration'])/int(segmenttemplate.attrib['timescale']),
                                                                                         self._proxy,        # 7
                                                                                         self._logger,       # 8
