@@ -3,7 +3,7 @@ DNS records in dnsmasq
 address=/generic-raspi/192.168.0.19
 address=/dash-test01/192.168.0.13
 address=/harmonic.dash-test02/192.168.0.20
-address=/dash-test02/192.168.0.20
+address=/mabr-origin.dash-test02/192.168.0.20
 address=/harmonic/192.168.0.11
 ```
 
