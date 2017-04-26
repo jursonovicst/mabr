@@ -7,6 +7,7 @@ address=/mabr-origin.dash-test02/192.168.0.20
 address=/harmonic/192.168.0.11
 ```
 
+**Client PCs should use DHCP to acquire IP address, but use the following DNS server: 192.168.0.13**
 
 | Stream | via origin | via CDN | via m2u |
 |---|---|---|---|
