@@ -29,6 +29,8 @@ class Receiver(threading.Thread):
 
     def run(self):
         self._run = True
+
+        # joining MC group
         self._sock.bind(('', self._mcast_port))
         host = socket.gethostbyname(socket.gethostname())
         self._sock.setsockopt(socket.SOL_IP, socket.IP_MULTICAST_IF, socket.inet_aton(host))
@@ -48,3 +50,7 @@ class Receiver(threading.Thread):
 
     def stop(self):
         self._run = False
+
+        # leaving MC group
+        host = socket.gethostbyname(socket.gethostname())
+        self._sock.setsockopt(socket.SOL_IP, socket.IP_DROP_MEMBERSHIP, socket.inet_aton(self._mcast_grp) + socket.inet_aton(host))

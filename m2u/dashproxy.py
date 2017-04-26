@@ -3,7 +3,15 @@ from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
 import os
 import urllib2
 import dash
+
+import imp
+try:
+  imp.find_module('memcache')
+except ImportError:
+  print("This scrypt requires dpkt.rtp python library, please install python-dpkt!")
+  exit(1)
 import memcache
+
 import re
 import ConfigParser
 from receiver import Receiver
@@ -197,32 +205,29 @@ class DASHProxy(threading.Thread):
         for configfp in configfps:
             self._channels.append(Channel(configfp))
 
-        self._run = False
         self._server = None
         self._logger.debug("HTTPServer thread started")
 
     def run(self):
-        self._run = True
 
         self._logger.info("Start handling requests on %s:%d" %(self._ip, self._port))
-        while self._run:
-            try:
-                myhandler = MakeHandlerClass(self._logger, self._channels, self._memcached, self._proxy, self._fqdn, self._cdn)
-                self._server = HTTPServer((self._ip, self._port), myhandler)
+        try:
+            myhandler = MakeHandlerClass(self._logger, self._channels, self._memcached, self._proxy, self._fqdn, self._cdn)
+            self._server = HTTPServer((self._ip, self._port), myhandler)
 
-                # This will block and periodically check the shutdown signal
-                self._server.serve_forever()
-            except KeyboardInterrupt:
-                self._logger.debug("KeyboardInterrupt")
-                self.stop()
-            except Exception as e:
-                self._logger.warning("Oops: " + e.message + ", respawn in 10 sec...")
-                time.sleep(10)
-                self._server.shutdown()
+            # This will block and periodically check the shutdown signal
+            self._server.serve_forever()
+        except KeyboardInterrupt:
+            self._logger.debug("KeyboardInterrupt")
+        except Exception as e:
+            self._logger.warning("Oops: %s, respawn in 10 sec..." % str(e))
+            time.sleep(10)
+        finally:
+            self.stop()
 
     def stop(self):
-        self._run = False
         if self._server is not None:
             self._server.shutdown()
+            self._server = None
 
 
