@@ -1,0 +1,43 @@
+[Unit]
+Description = channel 03
+After = network.target
+
+
+[Service]
+Environment = INPUT=input/big_buck_bunny_1080p_h264.mov NAME=lowlathls DST=output/ch03
+
+WorkingDirectory = /home/cdn/mabr/cast
+ExecStartPre = /bin/mkdir -p $DST
+
+ExecStart = /usr/local/bin/ffmpeg -re -stream_loop -1 \
+  -c:v h264_cuvid -i $INPUT \
+  -vf "drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf:fontsize=36:fontcolor=yellow:box=1:boxcolor=black@0.4:text='Wall clock time before encoding\: %{localtime\: %T %Z}'" \
+  -c:v h264_nvenc -b:v 3.5M -g 12 \
+  -f hls \
+    -hls_time 0.5 \
+    -hls_list_size 5 \
+    -hls_segment_filename ${DST}/chunk-%06d.ts \
+    -hls_flags +delete_segments+temp_file \
+  ${DST}/${NAME}.m3u8
+
+User = cdn
+ExecStopPost = /bin/rm -rf $DST
+Restart=always
+
+
+[Install]
+WantedBy = multi-user.target
+
+
+#dash muxer AVOptions:
+#  -window_size       <int>        E....... number of segments kept in the manifest (from 0 to INT_MAX) (default 0)
+#  -extra_window_size <int>        E....... number of segments kept outside of the manifest before removing from disk (from 0 to INT_MAX) (default 5)
+#  -min_seg_duration  <int64>      E....... minimum segment duration (in microseconds) (from 0 to INT_MAX) (default 5e+06)
+#  -remove_at_exit    <boolean>    E....... remove all segments when finished (default false)
+#  -use_template      <boolean>    E....... Use SegmentTemplate instead of SegmentList (default true)
+#  -use_timeline      <boolean>    E....... Use SegmentTimeline in SegmentTemplate (default true)
+#  -single_file       <boolean>    E....... Store all segments in one file, accessed using byte ranges (default false)
+#  -single_file_name  <string>     E....... DASH-templated name to be used for baseURL. Implies storing all segments in one file, accessed using byte ranges
+#  -init_seg_name     <string>     E....... DASH-templated name to used for the initialization segment (default "init-stream$RepresentationID$.m4s")
+#  -media_seg_name    <string>     E....... DASH-templated name to used for the media segments (default "chunk-stream$RepresentationID$-$Number%05d$.m4s")
+
