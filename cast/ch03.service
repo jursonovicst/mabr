@@ -9,7 +9,8 @@ Environment = INPUT=input/big_buck_bunny_1080p_h264.mov NAME=lowlathls DST=outpu
 WorkingDirectory = /home/cdn/mabr/cast
 ExecStartPre = /bin/mkdir -p $DST
 
-ExecStart = /usr/local/bin/ffmpeg -re -stream_loop -1 \
+ExecStart = /usr/local/bin/ffmpeg -nostats \
+  -re -stream_loop -1 \
   -c:v h264_cuvid -i $INPUT \
   -vf "drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf:fontsize=36:fontcolor=yellow:box=1:boxcolor=black@0.4:text='Wall clock time before encoding\: %{localtime\: %T %Z}'" \
   -c:v h264_nvenc -b:v 3.5M -g 12 \
