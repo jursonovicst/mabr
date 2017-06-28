@@ -1,0 +1,20 @@
+[Unit]
+Description = mABR unicast to multicast module
+After = network.target
+
+
+[Service]
+Environment = CONFIG=ch02.conf
+
+WorkingDirectory = /home/cdn/mabr
+
+ExecStart = /usr/bin/python2.7 u2m.py $CONFIG
+
+User = cdn
+Restart=always
+
+
+[Install]
+WantedBy = multi-user.target
+#Alias = u2md.service
+
