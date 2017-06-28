@@ -1,5 +1,5 @@
 [Unit]
-Description = channel 03
+Description =  Low Latency HLS Sample Stream
 After = network.target
 
 
@@ -8,19 +8,30 @@ Environment = INPUT=input/big_buck_bunny_1080p_h264.mov NAME=lowlathls DST=outpu
 
 WorkingDirectory = /home/cdn/mabr/cast
 ExecStartPre = /bin/mkdir -p $DST
+ExecStartPost = /bin/cp ${NAME}.m3u8 ${DST}
 
 ExecStart = /usr/local/bin/ffmpeg -nostats \
   -re -stream_loop -1 \
   -c:v h264_cuvid -i $INPUT \
-  -vf "drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf:fontsize=36:fontcolor=yellow:box=1:boxcolor=black@0.4:text='Wall clock time before encoding\: %{localtime\: %T %Z}'" \
-  -c:v h264_nvenc -b:v 3.5M -g 12 \
+  -filter_complex "[0:v]split=2[in1][in2];[in1]drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf:fontsize=36:fontcolor=yellow:y=150:box=1:boxcolor=black@0.4:text='-->3500k<-- 6000k  Wall clock time before encoding\: %{localtime\: %T %Z}'[out1];[in2]drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf:fontsize=36:fontcolor=yellow:y=150:box=1:boxcolor=black@0.4:text='3500k -->6000k<--  Wall clock time before encoding\: %{localtime\: %T %Z}'[out2]" \
+  -map '[out1]' -map 0:a -c:v h264_nvenc -b:v 3.5M -g 12 \
   -f hls \
     -hls_time 0.5 \
     -hls_list_size 10 \
     -hls_allow_cache 1 \
-    -hls_segment_filename ${DST}/%d.ts \
+    -hls_segment_filename ${DST}/${NAME}-3500-%d.ts \
     -hls_flags +delete_segments+temp_file \
-  ${DST}/${NAME}.m3u8
+    -hls_start_number_source 1 \
+  ${DST}/${NAME}-3500.m3u8 \
+  -map '[out2]' -map 0:a -c:v h264_nvenc -b:v 6M -g 12 \
+  -f hls \
+    -hls_time 0.5 \
+    -hls_list_size 10 \
+    -hls_allow_cache 1 \
+    -hls_segment_filename ${DST}/${NAME}-6000-%d.ts \
+    -hls_flags +delete_segments+temp_file \
+    -hls_start_number_source 1 \
+  ${DST}/${NAME}-6000.m3u8
 
 User = cdn
 ExecStopPost = /bin/rm -rf $DST
@@ -68,3 +79,4 @@ WantedBy = multi-user.target
 #     generic                      E....... start_number value (default)
 #     epoch                        E....... seconds since epoch
 #     datetime                     E....... current datetime as YYYYMMDDhhmmss
+
