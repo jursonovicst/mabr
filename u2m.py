@@ -32,11 +32,10 @@ if __name__ == '__main__':
         except KeyboardInterrupt:
             run = False
         except Exception as e:
-            logging.warning("Oops (%s), respawn in 10 sec..." % str(e))
+            logging.warning("Oops (%s), systemd should respawn me..." % str(e))
             logging.debug(traceback.format_exc())
-            time.sleep(10)
+            tun = False
         finally:
-            # Respawn...
             mpd.stop()
 
     logging.info("...exit")

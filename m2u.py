@@ -42,11 +42,10 @@ if __name__ == '__main__':
         except KeyboardInterrupt:
             run = False
         except Exception as e:
-            logging.warning("oops: '%s', respawn in 10 sec..." % e.message)
+            logging.warning("oops: '%s', systemd should respawn me..." % e.message)
             logging.debug(traceback.format_exc())
-            time.sleep(10)
+            run = False
         finally:
-            # Respawn...
             if p is not None:
                 p.stop()
 
