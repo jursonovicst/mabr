@@ -21,19 +21,15 @@ logging.basicConfig(level=getattr(logging, args.severity.upper(), None))
 
 if __name__ == '__main__':
 
-    run = True
     mpd = u2m.MPDParser(args.proxy, logging, args.CONFIG)
     try:
         mpd.fetch()
 
         # this will block   #TODO: add timeout for join...
         mpd.join()
-    except KeyboardInterrupt:
-        run = False
     except Exception as e:
         logging.warning("Oops (%s), systemd should respawn me..." % str(e))
         logging.debug(traceback.format_exc())
-        tun = False
     finally:
         mpd.stop()
 
