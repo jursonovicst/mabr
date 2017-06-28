@@ -18,7 +18,7 @@ from receiver import Receiver
 from urlparse import urlparse
 import time
 
-def MakeHandlerClass(logger, channels, memcachedaddress, proxy, fqdn, cdn):
+def MakeHandlerClass(logger, channels, memcachedaddress, ingestproxy, fqdn, cdn):
     class CustomHandler(BaseHTTPRequestHandler, object):
 
         _urltemplates = []
@@ -35,7 +35,7 @@ def MakeHandlerClass(logger, channels, memcachedaddress, proxy, fqdn, cdn):
             self._logger = logger
             self._memcachedaddress = memcachedaddress
             self._memcached = memcache.Client([memcachedaddress], debug=0)
-            self._proxy = proxy
+            self._ingestproxy = ingestproxy
             self._fqdn = fqdn
             self._cdn = cdn
 
@@ -124,7 +124,7 @@ def MakeHandlerClass(logger, channels, memcachedaddress, proxy, fqdn, cdn):
             return
 
         def passthrough(self, url):
-            proxy_handler = urllib2.ProxyHandler({'http': self._proxy})
+            proxy_handler = urllib2.ProxyHandler({'http': self._ingestproxy})
             opener = urllib2.build_opener(proxy_handler)
             buff = None
             res = None
@@ -186,33 +186,31 @@ class Channel:
     def getRepresentationIDs(self):
         return list(self._data)
 
-class DASHProxy(threading.Thread):
+class DASHProxy():
 
 
-    def __init__(self, group=None, target=None, name="HTTPServer", args=(), kwarggs=None):
-        threading.Thread.__init__(self, group, target, name, args, kwarggs)
+    def __init__(self, logger, ip, port, configfps, memcached, ingestproxy, fqdn, cdn):
 
-        self._logger = args[0]
-        self._ip = args[1]
-        self._port = int(args[2])
-        configfps = args[3]
-        self._memcached = args[4]
-        self._proxy = args[5]
-        self._fqdn = args[6]
-        self._cdn = args[7]
+        self._logger = logger
+        self._ip = ip
+        self._port = int(port)
+        configfps = configfps
+        self._memcached = memcached
+        self._ingestproxy = ingestproxy
+        self._fqdn = fqdn
+        self._cdn = cdn
 
         self._channels = []
         for configfp in configfps:
             self._channels.append(Channel(configfp))
 
         self._server = None
-        self._logger.debug("HTTPServer thread started")
 
-    def run(self):
+    def serve_requests(self):
 
         self._logger.info("Start handling requests on %s:%d" %(self._ip, self._port))
         try:
-            myhandler = MakeHandlerClass(self._logger, self._channels, self._memcached, self._proxy, self._fqdn, self._cdn)
+            myhandler = MakeHandlerClass(self._logger, self._channels, self._memcached, self._ingestproxy, self._fqdn, self._cdn)
             self._server = HTTPServer((self._ip, self._port), myhandler)
 
             # This will block and periodically check the shutdown signal
@@ -220,8 +218,7 @@ class DASHProxy(threading.Thread):
         except KeyboardInterrupt:
             self._logger.debug("KeyboardInterrupt")
         except Exception as e:
-            self._logger.warning("Oops: %s, respawn in 10 sec..." % str(e))
-            time.sleep(10)
+            self._logger.warning("Oops: %s, ..." % str(e))
         finally:
             self.stop()
 

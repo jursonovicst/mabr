@@ -29,19 +29,19 @@ logging.basicConfig(level=getattr(logging, args.severity.upper(), None))
 
 if __name__ == '__main__':
 
-
-    p = None
+    dashproxy = None
     try:
-        p = m2u.DASHProxy(name="Test", args=(logging, args.ip, args.port, args.CONFIG, args.memcached, args.proxy, args.fqdn, args.cdn))
-        p.start()
+        dashproxy = m2u.DASHProxy(logging, args.ip, args.port, args.CONFIG, args.memcached, args.proxy, args.fqdn, args.cdn)
 
-        # This will block   #TODO: add timeout for join...
-        p.join()
+        #this will block
+        dashproxy.serve_requests()
+
     except Exception as e:
         logging.warning("oops: '%s', systemd should respawn me..." % e.message)
         logging.debug(traceback.format_exc())
+    except KeyboardInterrupt:
+        logging.debug("KeyboardInterrupt")
     finally:
-        if p is not None:
-            p.stop()
+        dashproxy.stop()
 
     logging.info("...exit")
