@@ -1,16 +1,41 @@
 [Unit]
-Description = channel 01
+Description = bbb with DashCast and nvenc
 After = network.target
 
 
 [Service]
-WorkingDirectory = /home/cdn/mabr/cast
-ExecStartPre = /bin/mkdir -p output/ch01/
+Environment = INPUT=input/big_buck_bunny_480p_stereo.avi CONFIG=input/big_buck_bunny_480p_stereo.conf NAME=ch01 DST=output/ch01
 
-ExecStart = /home/cdn/gpac/bin/gcc/DashCast -v big_buck_bunny_1080p_h264.mov -vfr 24 -conf big_buck_bunny_480p_stereo.conf -live-media -out output/ch01 -mpd ch01.mpd -log-file /var/log/dashcast/ch01.log -min-buffer 5.0
+WorkingDirectory = /home/cdn/mabr/cast
+ExecStartPre = /bin/mkdir -p $DST
+
+ExecStart = /home/cdn/gpac/bin/gcc/DashCast \
+  -v $INPUT -vfr 24 -conf $CONFIG \
+  -live-media \
+  -seg-dur 6000 \
+  -frag 6000 \
+  -out $DST \
+  -mpd ${NAME}.mpd \
+  -log-file /var/log/dashcast/${NAME}.log \
+  -min-buffer 5.0
 
 User = cdn
-ExecStopPost = /bin/rm -rf output/ch01
+ExecStopPost = /bin/rm -rf $DST
+Restart=always
 
 [Install]
 WantedBy = multi-user.target
+
+#DASH options:
+#    -seg-dur dur:int         set the segment duration in millisecond (default value: 1000)
+#    -frag dur:int            set the fragment duration in millisecond (default value: 1000) (same as -frag-dur)
+#    -seg-marker marker:4cc   add a marker box named marker at the end of DASH segment
+#    -out outdir:str          outdir is the output data directory (default: output)
+#    -mpd mpdname:str         mpdname is the MPD file name (default: dashcast.mpd)
+#    -ast-offset dur:int      dur is the MPD availabilityStartTime shift in milliseconds (default value: 0)
+#    -mpd-refresh dur:int     dur is the MPD minimumUpdatePeriod in seconds
+#    -time-shift dur:int      dur is the MPD TimeShiftBufferDepth in seconds
+#                                - the default value is 10. Specify -1 to keep all files.
+#    -min-buffer dur:float    dur is the MPD minBufferTime in seconds (default value: 1.0)
+#    -base-url baseurl:str    baseurl is the MPD BaseURL
+
