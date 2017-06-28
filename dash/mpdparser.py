@@ -65,5 +65,6 @@ class MPDParser:
         if self._mpdroot is None:
             self._loadmpd()
 
-        segmenttemplate = self._mpdroot.find(".//ns:AdaptationSet/ns:Representation[@id='%s']/../ns:SegmentTemplate" % representationid, MPDParser._ns)
+        #segmenttemplate = self._mpdroot.find(".//ns:AdaptationSet/ns:Representation[@id='%s']/../ns:SegmentTemplate" % representationid, MPDParser._ns)  #-->removed, because the current ffmpeg encoding puts the segmenttemplate unter the representation
+        segmenttemplate = self._mpdroot.find(".//ns:AdaptationSet/ns:Representation[@id='%s']/ns:SegmentTemplate" % representationid, MPDParser._ns)
         return segmenttemplate.attrib['media']

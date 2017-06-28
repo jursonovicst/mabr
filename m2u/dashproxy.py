@@ -8,7 +8,7 @@ import imp
 try:
   imp.find_module('memcache')
 except ImportError:
-  print("This scrypt requires dpkt.rtp python library, please install python-dpkt!")
+  print("This scrypt requires memcache python library, please install python-memcache!")
   exit(1)
 import memcache
 
