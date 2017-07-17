@@ -19,7 +19,7 @@ ExecStart = /usr/local/bin/ffmpeg -nostats \
           -remove_at_exit true \
           -use_template 1 \
           -use_timeline 0 \
-          -media_seg_name "bhunk-stream$RepresentationID$-$Number$.m4s" \
+          -media_seg_name "chunk-stream$RepresentationID$-$Number$.m4s" \
   ${DST}/${NAME}.mpd
 
 User = cdn
