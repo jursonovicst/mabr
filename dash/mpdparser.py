@@ -48,22 +48,26 @@ class MPDParser:
 
         return multicasts
 
-    def geturltemplates(self):
+    def getMediaPatterns(self):
         if self._mpdroot is None:
             self._loadmpd()
 
-        # find url templates
-        urltemplates = []
-        for period in self._mpdroot.findall('.//ns:Period', MPDParser._ns):
-            for adaptationset in period.findall('.//ns:AdaptationSet', MPDParser._ns):
-                for segmenttemplate in adaptationset.findall('.//ns:SegmentTemplate', MPDParser._ns):
-                    urltemplates.append(segmenttemplate.attrib['media'])
+        for representation in self._mpdroot.findall('.//ns:Representation', MPDParser._ns):
+            for segmenttemplate in representation.findall('.//ns:SegmentTemplate', MPDParser._ns):
+                yield (segmenttemplate.attrib['media'].replace('$RepresentationID$',representation.attrib['id']).replace('.','\.').replace('$Number$', '\d+'), representation.attrib['id'])
 
-        return urltemplates
+    def getInitializationPatterns(self):
+        if self._mpdroot is None:
+            self._loadmpd()
+
+        for representation in self._mpdroot.findall('.//ns:Representation', MPDParser._ns):
+            for segmenttemplate in representation.findall('.//ns:SegmentTemplate', MPDParser._ns):
+                yield (segmenttemplate.attrib['initialization'].replace('$RepresentationID$',representation.attrib['id']).replace('.','\.'), representation.attrib['id'])
 
     def geturltemplatefor(self, representationid):
         if self._mpdroot is None:
             self._loadmpd()
 
-        segmenttemplate = self._mpdroot.find(".//ns:AdaptationSet/ns:Representation[@id='%s']/../ns:SegmentTemplate" % representationid, MPDParser._ns)
+        #segmenttemplate = self._mpdroot.find(".//ns:AdaptationSet/ns:Representation[@id='%s']/../ns:SegmentTemplate" % representationid, MPDParser._ns)  #-->removed, because the current ffmpeg encoding puts the segmenttemplate unter the representation
+        segmenttemplate = self._mpdroot.find(".//ns:AdaptationSet/ns:Representation[@id='%s']/ns:SegmentTemplate" % representationid, MPDParser._ns)
         return segmenttemplate.attrib['media']

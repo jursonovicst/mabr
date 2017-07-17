@@ -53,8 +53,9 @@ class MPDParser:
 
     def fetch(self):
         # get mpd
-        self._logger.debug("Open manifest file '%s'" % self._config.get('general','mpd'))
-        ret = self._opener.open(self._config.get('general','mpd'))
+        mpdurl = 'http://' + self._config.get('general','ingestfqdn') + self._config.get('general','mpdpath')
+        self._logger.debug("Open manifest file '%s'" % mpdurl)
+        ret = self._opener.open(mpdurl)
         mpd = ret.read()
         self._opener.close()
 
@@ -88,7 +89,7 @@ class MPDParser:
                         mcast_grp = self._config.get(representation.attrib['id'], 'mcast_grp')
                         mcast_port = self._config.get(representation.attrib['id'], 'mcast_port')
                         ssrc = self._config.get(representation.attrib['id'], 'ssrc')
-                        urltemplate = os.path.dirname(self._config.get('general','mpd')) + "/" + segmenttemplate.attrib['media']
+                        urltemplate = os.path.dirname(mpdurl) + "/" + segmenttemplate.attrib['media']
                         p = MCSender(name="u2m-%s" % representation.attrib['id'], args=(mcast_grp,          # 0
                                                                                         int(mcast_port),    # 1
                                                                                         int(ssrc),          # 2
@@ -97,7 +98,7 @@ class MPDParser:
                                                                                         self._calculateLastNumber(segmenttemplate.attrib['timescale'], segmenttemplate.attrib['duration'], segmenttemplate.attrib['startNumber'], mpdroot.attrib['availabilityStartTime'], mpdroot.attrib['presentationTimeOffset'] if 'presentationTimeOffset' in mpdroot.attrib else 0, mpdroot.attrib['suggestedPresentationDelay'] if 'suggestedPresentationDelay' in mpdroot.attrib else 0),
                                                                                         int(segmenttemplate.attrib['duration'])/int(segmenttemplate.attrib['timescale']),
                                                                                         self._proxy,        # 7
-                                                                                        self._logger,       # 8
+                                                                                        self._logger.getChild('MCSender'),       # 8
                                                                                         int(representation.attrib['bandwidth'])  #9
                                                                                        ))
                         p.start()
@@ -105,16 +106,18 @@ class MPDParser:
                     except ConfigParser.NoSectionError:
                         pass    # if representationid is not in config, do not send representation
 
+
     def join(self):
-        while any(p.isAlive and p.join(1) == None for p in self._jobs):
+        while any(p.join(MCSender._timeout) == None and p.isAlive for p in self._jobs):
             pass
+
 
     def stop(self):
         for p in self._jobs:
             if p.isAlive():
                 p.stop()
-        for p in self._jobs:
-            self._jobs.remove(p)
+                p.join(MCSender._timeout)
+
 
 
 

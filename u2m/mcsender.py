@@ -7,9 +7,12 @@ import socket
 import random
 import rtpext
 import struct
+import math
 import re
 
 class MCSender(threading.Thread):
+
+    _timeout = 1
 
     def __init__(self, group=None, target=None, name=None, args=(), kwarggs=None):
         threading.Thread.__init__(self, group, target, name, args, kwarggs)
@@ -40,20 +43,22 @@ class MCSender(threading.Thread):
         self._run = False
         self._timeoffset_ut = None
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 32)   #by default, TTL for multicast is 1, increase this value to send to other networks.
+        self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1)
 
+
+        # RTP frame (custom dpkt.rtp.RTP)
         random.seed(os.urandom(1))
-        self._rtp_pkt = rtpext.RTPExt()
+        self._rtp_pkt = rtpext.RTPMABRDATA()
         self._rtp_pkt.version = 2
         self._rtp_pkt.p=0
-        self._rtp_pkt.x=0
+        self._rtp_pkt.x=1
         self._rtp_pkt.cc=0x0
         self._rtp_pkt.m=0
-        self._rtp_pkt.x=1
         self._rtp_pkt.pt=96
         self._rtp_pkt.seq = random.randint(0,65535)
         self._rtp_pkt.ts=0x00
         self._rtp_pkt.ssrc=self._ssrc
-        self._rtp_pkt.ehid=12
 
 
     def _tokencallback(self, period, fireat_wc):
@@ -85,36 +90,50 @@ class MCSender(threading.Thread):
             url = string.replace(self._urltemplate, "$Number$", str(self._number))     #keep in mind, that ffmpeg default setting is not compatible: %05d stuff...
             message = "Accessing segment '%s':" % url
 
-            ret = self._opener.open(url)
-            message += " HTTP %s" % ret.getcode()
+            ret = self._opener.open(url)                                                #TODO: timeout
+            message += " HTTP %s (%s byte)" % (ret.getcode(),ret.headers['content-length'])
 
             # 2. send it out in parts
             representationid_padded = self._representationid + ("\0" * ((4 - len(self._representationid) % 4) % 4))
                         #ADSL   IP  UDP RTP RTPe    RTPeh
-            mtu = 1500  -4      -20 -8  -12 -4      -12-len(representationid_padded)
+            mtu = 1500  -4      -20 -8  -12 -4      -6*4
             readpos = 0
             numberofsentpackets = 0
 
             buff=ret.read(mtu)
             self._rtp_pkt.m = 0
             self._rtp_pkt.ts = self._calctimestamp(90000)
+            seqoffirstpacket = self._rtp_pkt.seq
+            seqoflastpacket = self._rtp_pkt.seq + math.ceil(int(ret.headers['content-length']) / mtu)
+
+            seqmin = self._rtp_pkt.seq
+
             while buff != "":
                 # Add retransmission information
-                self._rtp_pkt.eh = struct.pack('!I', readpos) + struct.pack('!I', readpos+len(buff)-1) + struct.pack('!I', self._number) + representationid_padded
-                self._rtp_pkt.ehlen = len(self._rtp_pkt.eh) / 4
+                self._rtp_pkt.bytemin = readpos
+                self._rtp_pkt.bytemax = readpos + len(buff) - 1
 
                 # Copy data
                 self._rtp_pkt.data = buff
 
-                # Nnext packet
+                # Next packet
                 readpos += len(buff)
                 buff = ret.read(mtu)
-                if buff == "":
-                    self._rtp_pkt.m = 1 # Last packet, set marker
+                if buff != "":
+                    # Put it into the jonbuffer
+                    self._jobbuffer.append(str(self._rtp_pkt))
+                else:
+                    # Last packet, set marker
+                    rtp_pkt_stitcher = rtpext.RTPMABRSTITCHER(self._rtp_pkt)
+                    rtp_pkt_stitcher.m = 1
+                    rtp_pkt_stitcher.seqmin = seqmin
+                    rtp_pkt_stitcher.seqmax = rtp_pkt_stitcher.seq
+                    rtp_pkt_stitcher.chunknumber = self._number
 
-                # Put it into the jonbuffer
-                self._jobbuffer.append(str(self._rtp_pkt))
+                    self._jobbuffer.append(str(rtp_pkt_stitcher))
+
                 self._jobsem.release()
+
 
                 # Update sequence number
                 numberofsentpackets += 1
@@ -141,18 +160,24 @@ class MCSender(threading.Thread):
         self._tokencallback(1500.0*8.0/self._bandwidth / 1.1, time.time())
 
         self._logger.info("Sending representation '%s' to %s:%d (ssrc: %d)" % (self._representationid, self._mcast_grp, self._mcast_port, self._ssrc))
-        while self._run:
-            # Get a token
-            self._tokensem.acquire()
+        try:
+            while self._run:
+                # Get a token
+                self._tokensem.acquire()
 
-            # Get a job
-            self._jobsem.acquire()
+                # Get a job
+                self._jobsem.acquire()
 
-            # Send out the job
-            self._sock.sendto(self._jobbuffer.pop(0), (self._mcast_grp, self._mcast_port))
+                # Send out the job
+                self._sock.sendto(self._jobbuffer.pop(0), (self._mcast_grp, self._mcast_port))
+
+        except KeyboardInterrupt:
+            print "zzz"
+        finally:
+            self._tokentimer.cancel()
+            self._fetchtimer.cancel()
+            self._opener.close()
+            self._logger.debug("Exiting...")
 
     def stop(self):
         self._run = False
-        self._tokentimer.cancel()
-        self._fetchtimer.cancel()
-        self._opener.close()

@@ -3,8 +3,9 @@ import u2m
 import logging
 import argparse
 import time
+import signal
 
-import sys, traceback
+import traceback
 
 parser = argparse.ArgumentParser(description='...')
 parser.add_argument('--log', help='log file, use - for stdout [default: %(default)s]', default="-")
@@ -19,24 +20,20 @@ if args.log != "-":
 logging.basicConfig(level=getattr(logging, args.severity.upper(), None))
 
 
+
 if __name__ == '__main__':
 
-    run = True
-    mpd = u2m.MPDParser(args.proxy, logging, args.CONFIG)
-    while run:
-        try:
-            mpd.fetch()
+    mpd = None
+    try:
+        mpd = u2m.MPDParser(args.proxy, logging.getLogger('MPDParser'), args.CONFIG)
+        mpd.fetch()
 
-            # this will block   #TODO: add timeout for join...
-            mpd.join()
-        except KeyboardInterrupt:
-            run = False
-        except Exception as e:
-            logging.warning("Oops (%s), respawn in 10 sec..." % str(e))
-            logging.debug(traceback.format_exc())
-            time.sleep(10)
-        finally:
-            # Respawn...
-            mpd.stop()
+        # this will block
+        mpd.join()
+    except KeyboardInterrupt:
+        logging.debug("Exiting...")
+    except Exception as e:
+        logging.warning("Oops (%s), systemd should respawn me..." % str(e))
+        logging.debug(traceback.format_exc())
 
-    logging.info("...exit")
+    mpd.stop()
