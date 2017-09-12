@@ -4,6 +4,7 @@ import os
 import urllib2
 import dash
 import Queue
+import traceback
 
 import imp
 try:
@@ -139,6 +140,8 @@ def MakeHandlerClass(logger, ingestproxy, mcip, memcachedaddress):
                 self.send_response(501)
                 self.wfile.write("Internal server error: %s." % e.message)
                 self._logger.warning("Internal server error: %s." % e.message)
+                self._logger.debug(traceback.format_exc())
+
                 return
 
             return
