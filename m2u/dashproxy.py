@@ -167,7 +167,7 @@ def MakeHandlerClass(logger, ingestproxy, mcip, memcachedaddress):
                 buff = res.read()
                 self.wfile.write(buff)
 
-#                self._logger.info("Passthrough url '%s'" % url)
+                self._logger.debug("Passthrough url '%s'" % url)
             except urllib2.URLError as e:
                 e.url = url
                 raise e
