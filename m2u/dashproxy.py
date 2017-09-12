@@ -131,6 +131,10 @@ def MakeHandlerClass(logger, ingestproxy, mcip, memcachedaddress):
                 self.wfile.write("Request %s os not part of an MPEG-DASH stream." % requesturl)
                 self._logger.warning("Request %s os not part of an MPEG-DASH stream." % requesturl)
 
+            except urllib2.HTTPError as e:
+                self.send_response(e.code)
+                self.wfile.write(e.message)
+
             except Exception as e:
                 self.send_response(501)
                 self.wfile.write("Internal server error: %s." % e.message)
@@ -145,25 +149,18 @@ def MakeHandlerClass(logger, ingestproxy, mcip, memcachedaddress):
             buff = None
             res = None
 
-            try:
-                res = opener.open(url)
+            res = opener.open(url)
 
-                self.send_response(res.getcode())
-                for key in res.info():
-                    self.send_header(key, res.info()[key])
-                self.end_headers()
-                buff = res.read()
-                self.wfile.write(buff)
+            self.send_response(res.getcode())
+            for key in res.info():
+                self.send_header(key, res.info()[key])
+            self.end_headers()
+            buff = res.read()
+            self.wfile.write(buff)
 
 #                self._logger.info("Passthrough url '%s'" % url)
 
-            except urllib2.HTTPError as e:
-                print res.getcode()
-                self.send_response(res.getcode())
-
-                self.wfile.write(e.message)
-            finally:
-                return buff
+            return buff
 
         def respond(self, buff):
             try:
