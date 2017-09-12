@@ -5,6 +5,7 @@ import urllib2
 import dash
 import Queue
 import traceback
+import sys
 
 import imp
 try:
@@ -135,14 +136,18 @@ def MakeHandlerClass(logger, ingestproxy, mcip, memcachedaddress):
             except urllib2.HTTPError as e:
                 self.send_response(e.code)
                 self.wfile.write(e.message)
+                self._logger.debug(e.message)
+
+            except urllib2.URLError as e:
+                self.send_response(400)
+                self.wfile.write(e.message)
+                self._logger.debug(e.message)
 
             except Exception as e:
-                self.send_response(501)
+                self.send_response(500)
                 self.wfile.write("Internal server error: %s." % e.message)
                 self._logger.warning("Internal server error: %s." % e.message)
                 self._logger.debug(traceback.format_exc())
-
-                return
 
             return
 
