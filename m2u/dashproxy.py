@@ -35,7 +35,7 @@ def MakeHandlerClass(logger, ingestproxy, mcip, memcachedaddress):
 
         def __init__(self, *args, **kwargs):
             self._logger = logger
-            self._ingestproxy = ingestproxy
+            self._ingestproxy = None if ingestproxy == None or ingestproxy =="" else {'http': ingestproxy}
             self._mcip = mcip
             self._memcachedaddress = memcachedaddress
             self._memcached = memcache.Client([memcachedaddress], debug=0)
@@ -152,7 +152,7 @@ def MakeHandlerClass(logger, ingestproxy, mcip, memcachedaddress):
             return
 
         def passthrough(self, url):
-            proxy_handler = urllib2.ProxyHandler({'http': self._ingestproxy})
+            proxy_handler = urllib2.ProxyHandler(self._ingestproxy)
             opener = urllib2.build_opener(proxy_handler)
             buff = None
             res = None
