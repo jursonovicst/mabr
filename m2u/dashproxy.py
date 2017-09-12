@@ -141,7 +141,7 @@ def MakeHandlerClass(logger, ingestproxy, mcip, memcachedaddress):
             except urllib2.URLError as e:
                 self.send_response(400)
                 self.wfile.write("%s could not be reached: %s" % (e.url, e.reason))
-                self._logger.debug(e.url, e.reason)
+                self._logger.debug("%s could not be reached: %s" % (e.url, e.reason))
 
             except Exception as e:
                 self.send_response(500)
