@@ -1,0 +1,19 @@
+[Unit]
+Description = mABR multicast to unicast module
+After = network.target
+
+
+[Service]
+Environment = CONFIG=sample-u2m.conf
+
+WorkingDirectory = /home/cdn/mabr
+
+ExecStart = /usr/bin/python2.7 m2u.py $CONFIG
+
+User = username
+Restart=always
+
+
+[Install]
+WantedBy = multi-user.target
+#Alias = m2ud.service
