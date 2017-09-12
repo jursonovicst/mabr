@@ -19,7 +19,7 @@ from stitcher import Stitcher
 from channels import *
 import time
 
-def MakeHandlerClass(logger, ingestproxy, fqdn, cdn, mcip, memcachedaddress):
+def MakeHandlerClass(logger, ingestproxy, mcip, memcachedaddress):
     class CustomHandler(BaseHTTPRequestHandler, object):
 
         _urltemplates = []
@@ -34,8 +34,6 @@ def MakeHandlerClass(logger, ingestproxy, fqdn, cdn, mcip, memcachedaddress):
         def __init__(self, *args, **kwargs):
             self._logger = logger
             self._ingestproxy = ingestproxy
-            self._fqdn = fqdn
-            self._cdn = cdn
             self._mcip = mcip
             self._memcachedaddress = memcachedaddress
             self._memcached = memcache.Client([memcachedaddress], debug=0)
@@ -183,7 +181,7 @@ def MakeHandlerClass(logger, ingestproxy, fqdn, cdn, mcip, memcachedaddress):
 
 class DASHProxy():
 
-    def __init__(self, logger, ip, port, configfps, ingestproxy, fqdn, cdn, mcip, memcachedaddress):
+    def __init__(self, logger, ip, port, configfps, ingestproxy, mcip, memcachedaddress):
 
         self._logger = logger
         self._ip = ip
@@ -193,7 +191,7 @@ class DASHProxy():
             Channel.append(configfp)
 
         # handler class for responding to http requests
-        self._myhandler = MakeHandlerClass(self._logger.getChild("HTTPServer"), ingestproxy, fqdn, cdn, mcip, memcachedaddress)
+        self._myhandler = MakeHandlerClass(self._logger.getChild("HTTPServer"), ingestproxy, mcip, memcachedaddress)
         self._server = None
 
         # used to trigger the stitching of RTP packets
