@@ -140,8 +140,8 @@ def MakeHandlerClass(logger, ingestproxy, mcip, memcachedaddress):
 
             except urllib2.URLError as e:
                 self.send_response(400)
-                self.wfile.write(e.message)
-                self._logger.debug(e.message)
+                self.wfile.write("%s could not be reached: %s" % (e.url, e.reason))
+                self._logger.debug(e.url, e.reason)
 
             except Exception as e:
                 self.send_response(500)
@@ -157,17 +157,20 @@ def MakeHandlerClass(logger, ingestproxy, mcip, memcachedaddress):
             buff = None
             res = None
 
-            res = opener.open(url)
+            try:
+                res = opener.open(url)
 
-            self.send_response(res.getcode())
-            for key in res.info():
-                self.send_header(key, res.info()[key])
-            self.end_headers()
-            buff = res.read()
-            self.wfile.write(buff)
+                self.send_response(res.getcode())
+                for key in res.info():
+                    self.send_header(key, res.info()[key])
+                self.end_headers()
+                buff = res.read()
+                self.wfile.write(buff)
 
 #                self._logger.info("Passthrough url '%s'" % url)
-
+            except urllib2.URLError as e:
+                e.url = url
+                raise e
             return buff
 
         def respond(self, buff):
