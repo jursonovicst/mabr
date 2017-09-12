@@ -59,46 +59,46 @@ def MakeHandlerClass(logger, ingestproxy, mcip, memcachedaddress):
                 return
 
             requesturl = 'http://' + self.headers['Host'] + self.path
-
-            ######################
-            # mpd                #
-            ######################
-            channel = Channel.getChannelByID(self.headers['Host'], self.path)
-            if channel is not None:
-                # match on one channel
-                self._logger.debug("parse mpd: '%s'" % requesturl)
-
-                # Parse mpd
-                mpd = self.passthrough(channel.getMPDIngestUrl())
-                mpdparser = dash.MPDParser(mpd)
-
-                # parse url templates for multicast
-                for template, representationid in mpdparser.getMediaPatterns():
-                    mediapattern = os.path.dirname(self.path) + '/' + template
-
-                    channel.findStream(representationid).setMedia(mediapattern)
-                    self._logger.debug("Add '%s' pattern for multicast delivery." % mediapattern)
-
-                # parse url templates for multicast
-                for template, representationid in mpdparser.getInitializationPatterns():
-                    initializationpattern = os.path.dirname(self.path) + '/' + template
-
-                    channel.findStream(representationid).setInitialization(initializationpattern)
-                    self._logger.debug("Add '%s' pattern for passthrough." % initializationpattern)
-
-
-                # Start multicast receivers, if not already running
-                for stream in channel.getStreams():
-                    mcast_grp, mcast_port, ssrc = stream.getMCParam()
-                    receiverid = mcast_grp + ':' + str(mcast_port)
-                    if receiverid not in CustomHandler._jobs or not CustomHandler._jobs[receiverid].is_alive():
-                        p = Receiver(name="receiver-%s" % receiverid, args=(self._logger.getChild("Receiver"), self._mcip, self._memcachedaddress, stream))
-                        CustomHandler._jobs[receiverid] = p
-                        p.start()
-
-                return
-
             try:
+
+                ######################
+                # mpd                #
+                ######################
+                channel = Channel.getChannelByID(self.headers['Host'], self.path)
+                if channel is not None:
+                    # match on one channel
+                    self._logger.debug("parse mpd: '%s'" % requesturl)
+
+                    # Parse mpd
+                    mpd = self.passthrough(channel.getMPDIngestUrl())
+                    mpdparser = dash.MPDParser(mpd)
+
+                    # parse url templates for multicast
+                    for template, representationid in mpdparser.getMediaPatterns():
+                        mediapattern = os.path.dirname(self.path) + '/' + template
+
+                        channel.findStream(representationid).setMedia(mediapattern)
+                        self._logger.debug("Add '%s' pattern for multicast delivery." % mediapattern)
+
+                    # parse url templates for multicast
+                    for template, representationid in mpdparser.getInitializationPatterns():
+                        initializationpattern = os.path.dirname(self.path) + '/' + template
+
+                        channel.findStream(representationid).setInitialization(initializationpattern)
+                        self._logger.debug("Add '%s' pattern for passthrough." % initializationpattern)
+
+
+                    # Start multicast receivers, if not already running
+                    for stream in channel.getStreams():
+                        mcast_grp, mcast_port, ssrc = stream.getMCParam()
+                        receiverid = mcast_grp + ':' + str(mcast_port)
+                        if receiverid not in CustomHandler._jobs or not CustomHandler._jobs[receiverid].is_alive():
+                            p = Receiver(name="receiver-%s" % receiverid, args=(self._logger.getChild("Receiver"), self._mcip, self._memcachedaddress, stream))
+                            CustomHandler._jobs[receiverid] = p
+                            p.start()
+
+                    return
+
                 ######################
                 # media              #
                 ######################
@@ -132,7 +132,10 @@ def MakeHandlerClass(logger, ingestproxy, mcip, memcachedaddress):
                 self._logger.warning("Request %s os not part of an MPEG-DASH stream." % requesturl)
 
             except Exception as e:
-                self._logger.warning("Oops: %s" % e.message)
+                self.send_response(501)
+                self.wfile.write("Internal server error: %s." % e.message)
+                self._logger.warning("Internal server error: %s." % e.message)
+                return
 
             return
 
@@ -141,6 +144,7 @@ def MakeHandlerClass(logger, ingestproxy, mcip, memcachedaddress):
             opener = urllib2.build_opener(proxy_handler)
             buff = None
             res = None
+
             try:
                 res = opener.open(url)
 
@@ -187,6 +191,7 @@ class DASHProxy():
         self._ip = ip
         self._port = int(port)
 
+        # read all config files and add channels
         for configfp in configfps:
             Channel.append(configfp)
 

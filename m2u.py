@@ -12,12 +12,10 @@ parser = argparse.ArgumentParser(description='...')
 parser.add_argument('--log', help='log file, use - for stdout [default: %(default)s]', default="-")
 parser.add_argument('--severity', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
                     help='Log severity [default: %(default)s]', default="INFO")
-parser.add_argument('--m2u', help='m2u to use, use "" for no m2u [default: %(default)s]', default="")
 parser.add_argument('--memcached', help='memcache to use, provide IP:PORT or UNIX socket path [default: %(default)s]', default="127.0.0.1:11211")
 parser.add_argument('--proxy', help='HTTP proxy for stream ingest', default="")
 parser.add_argument('--bind', help='bind HTTP server [default: %(default)s]', default="0.0.0.0")
 parser.add_argument('--bindmulticast', help='bind multicast to an interface [default: %(default)s]', default="0.0.0.0")
-parser.add_argument('--ip', help='IP address to listen on [default: %(default)s]', default="0.0.0.0")
 parser.add_argument('--port', type=int, help='TCP port to listen on [default: %(default)s]', default="80")
 
 parser.add_argument('CONFIG', type=argparse.FileType('r'), nargs='+', help='Configs to intercept')
