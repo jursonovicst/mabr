@@ -13,7 +13,7 @@ class Channel:
         config = ConfigParser.ConfigParser()
         config.readfp(configfp)
 
-        servicefqdn = config.get('general', 'servicefqdn')
+        servicefqdn = config.get('general', 'servicefqdn').lower()
         mpdpath = config.get('general', 'mpdpath')
         print servicefqdn
         print mpdpath
@@ -36,7 +36,7 @@ class Channel:
     def validatefqdn(cls, fqdn):
         for key in cls._channels:
             print key
-            if key[0] == fqdn:
+            if key[0] == fqdn.lower():
                 return True
 
         return False
