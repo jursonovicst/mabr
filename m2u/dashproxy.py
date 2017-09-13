@@ -6,6 +6,8 @@ import dash
 import Queue
 import traceback
 import sys
+import re
+
 
 import imp
 try:
@@ -54,19 +56,21 @@ def MakeHandlerClass(logger, ingestproxy, mcip, memcachedaddress):
                 self._logger.warning("No Host header specified.")
                 return
 
-            if not Channel.validatefqdn(self.headers['Host']):
+            host = re.sub(':\d+$', '', self.headers['Host'])
+
+            if not Channel.validatefqdn(host):
                 self.send_response(401)
-                self.wfile.write("FQDN '%s' not configured to proxy." % self.headers['Host'])
-                self._logger.warning("FQDN '%s' not configured to proxy." % self.headers['Host'])
+                self.wfile.write("FQDN '%s' not configured to proxy." % host)
+                self._logger.warning("FQDN '%s' not configured to proxy." % host)
                 return
 
-            requesturl = 'http://' + self.headers['Host'] + self.path
+            requesturl = 'http://' + host + self.path
             try:
 
                 ######################
                 # mpd                #
                 ######################
-                channel = Channel.getChannelByID(self.headers['Host'], self.path)
+                channel = Channel.getChannelByID(host, self.path)
                 if channel is not None:
                     # match on one channel
                     self._logger.debug("parse mpd: '%s'" % requesturl)
@@ -104,7 +108,7 @@ def MakeHandlerClass(logger, ingestproxy, mcip, memcachedaddress):
                 ######################
                 # media              #
                 ######################
-                channel = Channel.getChannelByChunk(self.headers['Host'], self.path)
+                channel = Channel.getChannelByChunk(host, self.path)
                 if channel is not None:
                     #check, if the whole fragment is in memcached
                     chunk = self._memcached.get(channel.getIngestUrl(self.path))
@@ -121,7 +125,7 @@ def MakeHandlerClass(logger, ingestproxy, mcip, memcachedaddress):
                 ######################
                 # initialization     #
                 ######################
-                channel = Channel.getChannelByInitSegment(self.headers['Host'], self.path)
+                channel = Channel.getChannelByInitSegment(host, self.path)
                 if channel is not None:
                     self._logger.debug("cache passthg: '%s'" % requesturl)
                     self.passthrough(channel.getIngestUrl(self.path))
