@@ -41,7 +41,7 @@ class Receiver(threading.Thread):
 
         # joining MC group
         self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, socket.inet_aton(self._mcast_grp) + socket.inet_aton(self._mcip))
-        self._sock.bind(('', self._mcast_port))
+        self._sock.bind((self._mcast_grp, self._mcast_port))
 
 #        self._sock.setsockopt(socket.SOL_IP, socket.IP_MULTICAST_IF, socket.INADDR_ANY if self._mcip == '0.0.0.0' else socket.inet_aton(self._mcip))
 #        mreq = struct.pack('4sl', socket.inet_aton(self._mcast_grp), socket.INADDR_ANY if self._mcip == '0.0.0.0' else socket.inet_aton(self._mcip))
