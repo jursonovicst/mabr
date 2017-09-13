@@ -40,7 +40,7 @@ class Stitcher(threading.Thread):
                 #find my channel
                 #find my stream
 
-                self._logger.debug('Stitching for ssrc=%d: %d-%d to chunknumber=%d' % (ssrc, seqmin, seqmax, chunknumber))
+                self._logger.debug('Stitching for ssrc=%d: rtpseq=%d-%d to chunknumber=%d' % (ssrc, seqmin, seqmax, chunknumber))
 
                 keys = []
                 for seq in range(seqmin,seqmax):
@@ -48,17 +48,25 @@ class Stitcher(threading.Thread):
 
                 ret = self._memcached.get_multi(keys)
 
-                self._logger.warning("packet loss rate: %d%%" % ( (1-(float(len(ret.keys())) / len(keys)) ) * 100 ) )
+                packetlossrate = 1-(float(len(ret.keys())) / len(keys))
+                if packetlossrate < 0.01:
+                    self._logger.debug("packet loss rate: %d%%" % (packetlossrate * 100))
+                elif packetlossrate < 0.05:
+                    self._logger.warning("packet loss rate: %d%%" % (packetlossrate * 100))
+                else:
+                    self._logger.error("packet loss rate: %d%%" % (packetlossrate * 100))
 
                 chunk = ''
                 for seq in range(seqmin,seqmax):
                     try:
                         chunk += ret[str(ssrc) + ":" + str(seq)]
                     except KeyError:
+                        self._logger.warning("Packet rtpseq=%d has been lost --> retransmission (not yet implemented)!" % seq)
                         continue
 
-
-                print "gjgjhgh" + str(len(chunk))
+                #check fragment size
+                self._logger.debug("Fragment chunknumber=%d has been stitched!" % chunknumber)
+                #print "gjgjhgh" + str(len(chunk))
 
 
             except Queue.Empty:
