@@ -19,8 +19,9 @@ class Stitcher(threading.Thread):
 
 
     @classmethod
-    def stitch(cls, ssrc, seqmin, seqmax, chunknumber):
+    def stitch(cls, ssrc, seqmin, seqmax, chunknumber, logger):
         cls._stitcherqueue.put_nowait((ssrc, seqmin, seqmax, chunknumber))
+        logger.debug('Stitch ssrc=%d: rtpseq=%d-%d to chunknumber=%d' % (ssrc, seqmin, seqmax, chunknumber))
 
     def __init__(self, group=None, target=None, name=None, args=(), kwarggs=None):
         threading.Thread.__init__(self, group, target, name, args, kwarggs)
@@ -35,12 +36,12 @@ class Stitcher(threading.Thread):
         laststitchedseq = None
         while self._run:
             try:
+                #get stitching job
                 ssrc, seqmin, seqmax, chunknumber = Stitcher._stitcherqueue.get(True, Stitcher._timeout)
 
                 #find my channel
                 #find my stream
 
-                self._logger.debug('Stitching for ssrc=%d: rtpseq=%d-%d to chunknumber=%d' % (ssrc, seqmin, seqmax, chunknumber))
 
                 keys = []
                 for seq in range(seqmin,seqmax):

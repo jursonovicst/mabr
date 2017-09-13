@@ -83,7 +83,7 @@ class Receiver(threading.Thread):
 
                 # trigger stitcher
                 if rtp_pkt.m == 1:
-                    Stitcher.stitch(rtp_pkt.ssrc, rtp_pkt.seqmin, rtp_pkt.seqmax, rtp_pkt.chunknumber)
+                    Stitcher.stitch(rtp_pkt.ssrc, rtp_pkt.seqmin, rtp_pkt.seqmax, rtp_pkt.chunknumber, self._logger)
 
 
             except socket.timeout:
