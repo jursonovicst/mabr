@@ -4,11 +4,11 @@ After = network.target
 
 
 [Service]
-Environment = CONFIG=sample-u2m.conf
+Environment = CONFIGS=sample-u2m.conf sample2-u2m.conf
 
 WorkingDirectory = /home/cdn/mabr
 
-ExecStart = /usr/bin/python2.7 u2m.py $CONFIG
+ExecStart = /usr/bin/python2.7 u2m.py $CONFIGS
 
 User = username
 Restart=always
