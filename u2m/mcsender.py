@@ -141,10 +141,11 @@ class MCSender(threading.Thread):
 
             message += " (%d packets)" % numberofsentpackets
 
+            self._logger.debug(message)
+
         except urllib2.HTTPError as e:
             message += " HTTP %s (%s)" % (e.code, e.reason)
-        finally:
-            self._logger.info(message)
+            self._logger.warning(message)
 
         self._number += 1
 
