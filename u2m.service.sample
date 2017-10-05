@@ -16,4 +16,3 @@ Restart=always
 
 [Install]
 WantedBy = multi-user.target
-#Alias = u2md.service

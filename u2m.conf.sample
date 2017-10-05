@@ -7,7 +7,8 @@
 #
 # url to the live mpd
 #
-mpd=http://example.host/manifest.mpd
+ingestfqdn=example.host
+mpdpath=/folder/manifest.mpd
 
 
 #
