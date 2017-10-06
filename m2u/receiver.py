@@ -10,10 +10,9 @@ import sys, traceback
 
 import imp
 try:
-  imp.find_module('memcache')
+    imp.find_module('memcache')
 except ImportError:
-  print("This scrypt requires memcache python library, please install python-memcache!")
-  exit(1)
+    raise Exception("This script requires memcache python library, please install python-memcache!")
 import memcache
 
 
@@ -24,7 +23,7 @@ class Receiver(threading.Thread):
 
         self._logger = args[0]
         self._mcip = args[1]
-        self._memcached = memcache.Client([args[2]], debug=0)
+        self._memcached = memcache.Client([args[2]])
         self._stream = args[3]
         self._mcast_grp, self._mcast_port, self._ssrc = self._stream.getMCParam()
 
@@ -41,12 +40,12 @@ class Receiver(threading.Thread):
 
         # joining MC group
         self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, socket.inet_aton(self._mcast_grp) + socket.inet_aton(self._mcip))
-        self._sock.bind((self._mcast_grp, self._mcast_port))
+#        self._sock.bind((self._mcast_grp, self._mcast_port))   #may causes issues in windows
 
 #        self._sock.setsockopt(socket.SOL_IP, socket.IP_MULTICAST_IF, socket.INADDR_ANY if self._mcip == '0.0.0.0' else socket.inet_aton(self._mcip))
 #        mreq = struct.pack('4sl', socket.inet_aton(self._mcast_grp), socket.INADDR_ANY if self._mcip == '0.0.0.0' else socket.inet_aton(self._mcip))
 
-        self._logger.debug("Receiver thread started for %s:%d (ssrc: %d)" % (self._mcast_grp, self._mcast_port, self._ssrc))
+        self._logger.debug("Receiver thread started for %s:%d (ssrc: %d) on %s" % (self._mcast_grp, self._mcast_port, self._ssrc, self._mcip))
 
         laststitchedchunk=None
         while self._run:
@@ -78,11 +77,16 @@ class Receiver(threading.Thread):
 
                 # store data
                 key = str(rtp_pkt.ssrc) + ":" + str(rtp_pkt.seq)
-                self._memcached.set(key, rtp_pkt.data)
-#                self._logger.debug('RTP packet stored: ssrc=%s, seq=%d, representation_id=%d, chunknumber=%d' % (rtp_pkt.ssrc, rtp_pkt.seq, rtp_pkt.representationid, rtp_pkt.chunknumber))
+                if self._memcached.set(key, rtp_pkt.data):
+                    self.logger.debug('RTP packet stored: ssrc=%s, seq=%d, representation_id=%d, chunknumber=%d' % (rtp_pkt.ssrc, rtp_pkt.seq, rtp_pkt.representationid, rtp_pkt.chunknumber))
+                else:
+                    self.logger.warning('Cannot store RTP packet: ssrc=%s, seq=%d, representation_id=%d, chunknumber=%d' % (rtp_pkt.ssrc, rtp_pkt.seq, rtp_pkt.representationid, rtp_pkt.chunknumber))
+
+
 
                 # trigger stitcher
                 if rtp_pkt.m == 1:
+                    self.logger.debug('Last RTP packet of a segment received, initiate stitching: ssrc=%s, seq=%d, representation_id=%d, chunknumber=%d' % (rtp_pkt.ssrc, rtp_pkt.seq, rtp_pkt.representationid, rtp_pkt.chunknumber))
                     Stitcher.stitch(rtp_pkt.ssrc, rtp_pkt.seqmin, rtp_pkt.seqmax, rtp_pkt.chunknumber, self._logger)
 
 

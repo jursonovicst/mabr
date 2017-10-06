@@ -6,10 +6,9 @@ import imp
 
 import imp
 try:
-  imp.find_module('memcache')
+    imp.find_module('memcache')
 except ImportError:
-  print("This scrypt requires memcache python library, please install python-memcache!")
-  exit(1)
+    raise Exception("This scrypt requires memcache python library, please install python-memcache!")
 import memcache
 
 

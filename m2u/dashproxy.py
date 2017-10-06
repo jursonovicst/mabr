@@ -11,9 +11,9 @@ import re
 
 import imp
 try:
-  imp.find_module('memcache')
+    imp.find_module('memcache')
 except ImportError:
-  raise Exception("This script requires memcache python library, please install python-memcache!")
+    raise Exception("This script requires memcache python library, please install python-memcache!")
 import memcache
 
 
@@ -113,7 +113,7 @@ def MakeHandlerClass(logger, ingestproxy, mcip, memcachedaddress):
                     chunk = self._memcached.get(channel.getIngestUrl(self.path))
 
                     if not chunk:
-                        self._logger.debug("cache miss: '%s'" % requesturl)
+                        self._logger.warning("cache miss: '%s'" % requesturl)
                         self.passthrough(channel.getIngestUrl(self.path))
                     else:
                         self._logger.debug("cache hit: '%s' " % requesturl)
