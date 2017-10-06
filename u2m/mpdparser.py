@@ -83,7 +83,7 @@ class MPDParser:
                 segmenttemplate = adaptationset.find('.//ns:SegmentTemplate', ns)
                 self._logger.debug("SegmentTemplate (media=%s) found" % (segmenttemplate.attrib['media'] if 'media' in segmenttemplate.attrib else "--"))
                 for representation in adaptationset.findall('.//ns:Representation', ns):
-                    self._logger.debug("Representation '%s' found (bitrate: %s)" % (representation.attrib['id'],representation.attrib['bandwidth']))
+                    self._logger.debug("Representation '%s' found (bitrate: %.2fMbps)" % (representation.attrib['id'],float(representation.attrib['bandwidth'])/1000/1000))
 
                     try:
                         mcast_grp = self._config.get(representation.attrib['id'], 'mcast_grp')
@@ -98,8 +98,8 @@ class MPDParser:
                                                                                         self._calculateLastNumber(segmenttemplate.attrib['timescale'], segmenttemplate.attrib['duration'], segmenttemplate.attrib['startNumber'], mpdroot.attrib['availabilityStartTime'], mpdroot.attrib['presentationTimeOffset'] if 'presentationTimeOffset' in mpdroot.attrib else 0, mpdroot.attrib['suggestedPresentationDelay'] if 'suggestedPresentationDelay' in mpdroot.attrib else 0),
                                                                                         int(segmenttemplate.attrib['duration'])/int(segmenttemplate.attrib['timescale']),
                                                                                         self._proxy,        # 7
-                                                                                        self._logger.getChild('MCSender'),       # 8
-                                                                                        int(representation.attrib['bandwidth'])  #9
+                                                                                        self._logger.getChild('MCSender(repid%s)'%representation.attrib['id']),       # 8
+                                                                                        int(representation.attrib['bandwidth'])*float(self._config.get('general','bwfactor'))  #9
                                                                                        ))
                         p.start()
                         self._jobs.append(p)

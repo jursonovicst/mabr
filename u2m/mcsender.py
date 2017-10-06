@@ -26,7 +26,7 @@ class MCSender(threading.Thread):
         proxy_handler = urllib2.ProxyHandler({'http': args[7]} if args[7] != "" else {})
         self._opener = urllib2.build_opener(proxy_handler)
         self._logger = args[8]
-        self._bandwidth = int(args[9])
+        self._bandwidthcap = float(args[9])
 
         # Fetch
         self._fetchtimer = None
@@ -158,9 +158,9 @@ class MCSender(threading.Thread):
         self._fetchcallback(time.time())
 
         # Start adding tokens, set the bitrate limit here by calculating how frequently a packet can leave
-        self._tokencallback(1500.0*8.0/self._bandwidth / 1.1, time.time())
+        self._tokencallback(1500.0 * 8.0 / self._bandwidthcap / 1.1, time.time())
 
-        self._logger.info("Sending representation '%s' to %s:%d (ssrc: %d)" % (self._representationid, self._mcast_grp, self._mcast_port, self._ssrc))
+        self._logger.info("Sending representation '%s' to %s:%d (ssrc: %d, bwcap: %.2fMbps)" % (self._representationid, self._mcast_grp, self._mcast_port, self._ssrc, self._bandwidthcap / 1000 / 1000))
         try:
             while self._run:
                 # Get a token
