@@ -13,8 +13,7 @@ import imp
 try:
   imp.find_module('memcache')
 except ImportError:
-  print("This scrypt requires memcache python library, please install python-memcache!")
-  exit(1)
+  raise Exception("This script requires memcache python library, please install python-memcache!")
 import memcache
 
 
@@ -227,12 +226,9 @@ class DASHProxy():
 
             # This will block and periodically check the shutdown signal
             self._server.serve_forever()
-        except KeyboardInterrupt:
-            self._logger.debug("received interrupt signal...")
-        except Exception as e:
-            self._logger.warning("Oops: %s, ..." % str(e))
-        finally:
+        except:
             self.stop()
+            raise
 
     def stop(self):
         if self._server is not None:

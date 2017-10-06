@@ -48,7 +48,7 @@ class Stitcher(threading.Thread):
                     keys.append(str(ssrc) + ":" + str(seq))
 
                 ret = self._memcached.get_multi(keys)
-                if len(keys)
+                #if len(keys)
 
                 packetlossrate = 1-(float(len(ret.keys())) / len(keys))
                 if packetlossrate < 0.01:
