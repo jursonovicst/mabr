@@ -82,17 +82,17 @@ class Receiver(threading.Thread):
 
                 # store data
                 key = str(rtp_pkt.ssrc) + ":" + str(rtp_pkt.seq)
-                if self._memcached.set(key, rtp_pkt.data):
-                    self._logger.debug('RTP packet stored: ssrc=%s, seq=%d' % (rtp_pkt.ssrc, rtp_pkt.seq))
-                else:
+                if not self._memcached.set(key, rtp_pkt.data):
                     self._logger.warning('Cannot store RTP packet: ssrc=%s, seq=%d' % (rtp_pkt.ssrc, rtp_pkt.seq))
+#                else:
+#                    self._logger.debug('RTP packet stored: ssrc=%s, seq=%d' % (rtp_pkt.ssrc, rtp_pkt.seq))
+
 
 
 
                 # trigger stitcher
                 if rtp_pkt.m == 1:
-                    self._logger.debug('Last RTP packet of a segment received, initiate stitching: ssrc=%s, seq=%d, representation_id=%d, chunknumber=%d' % (rtp_pkt.ssrc, rtp_pkt.seq, rtp_pkt.representationid, rtp_pkt.chunknumber))
-                    Stitcher.stitch(rtp_pkt.ssrc, rtp_pkt.seqmin, rtp_pkt.seqmax, rtp_pkt.chunknumber, self._logger)
+                    Stitcher.stitch(rtp_pkt.ssrc, rtp_pkt.burstseqmin, rtp_pkt.burstseqmax, rtp_pkt.chunknumber, self._logger)
 
 
             except socket.timeout:

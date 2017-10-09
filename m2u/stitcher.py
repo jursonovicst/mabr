@@ -18,9 +18,9 @@ class Stitcher(threading.Thread):
 
 
     @classmethod
-    def stitch(cls, ssrc, seqmin, seqmax, chunknumber, logger):
-        cls._stitcherqueue.put_nowait((ssrc, seqmin, seqmax, chunknumber))
-        logger.debug('Stitch ssrc=%d: rtpseq=%d-%d to chunknumber=%d' % (ssrc, seqmin, seqmax, chunknumber))
+    def stitch(cls, ssrc, burstseqmin, burstseqmax, chunknumber, logger):
+        logger.debug('Initiate stitching for: ssrc=%s, rtpseq=%d-%d, chunknumber=%d' % (ssrc, burstseqmin, burstseqmax, chunknumber))
+        cls._stitcherqueue.put_nowait((ssrc, burstseqmin, burstseqmax, chunknumber))
 
     def __init__(self, group=None, target=None, name=None, args=(), kwarggs=None):
         threading.Thread.__init__(self, group, target, name, args, kwarggs)
