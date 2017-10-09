@@ -101,10 +101,9 @@ class MCSender(threading.Thread):
             numberofsentpackets = 0
 
             buff=ret.read(mtu)
+            chunk=buff
             self._rtp_pkt.m = 0
             self._rtp_pkt.ts = self._calctimestamp(90000)
-            seqoffirstpacket = self._rtp_pkt.seq
-            seqoflastpacket = self._rtp_pkt.seq + math.ceil(int(ret.headers['content-length']) / mtu)
 
             burstseqfirst = self._rtp_pkt.seq
 
@@ -119,6 +118,7 @@ class MCSender(threading.Thread):
                 # Next packet
                 readpos += len(buff)
                 buff = ret.read(mtu)
+                chunk += buff
                 if buff != "":
                     # Put it into the jonbuffer
                     self._jobbuffer.append(str(self._rtp_pkt))
@@ -129,6 +129,7 @@ class MCSender(threading.Thread):
                     rtp_pkt_stitcher.burstseqfirst = burstseqfirst
                     rtp_pkt_stitcher.burstseqlast = rtp_pkt_stitcher.seq
                     rtp_pkt_stitcher.chunknumber = self._number
+                    rtp_pkt_stitcher.updateChecksum(chunk)
 
                     self._jobbuffer.append(str(rtp_pkt_stitcher))
 

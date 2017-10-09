@@ -4,6 +4,7 @@ try:
 except ImportError:
     raise Exception("This scrypt requires dpkt.rtp python library, please install python-dpkt!")
 from dpkt.rtp import RTP
+import binascii
 
 import socket, struct
 
@@ -31,7 +32,7 @@ class RTPMABRDATA(RTPEXT):
     def __init__(self, rtpmabrdata=None):
         super(RTPMABRDATA, self).__init__()
         self.id = self.ID
-        self.length = 2
+        self.length = 2         # in 4 bytes
 
     def unpack(self, buf):
         super(RTPMABRDATA, self).unpack(buf)
@@ -44,15 +45,16 @@ class RTPMABRSTITCHER(RTPMABRDATA):
     ID = 0xbaab                         # RTPMABRSTITCHER extension header identifier
 
     __hdr__ = RTPMABRDATA.__hdr__ + (   # same as above
-        ('burstseqfirst', 'H', 0),        # ???
-        ('burstseqlast', 'H', 0),        # ???
+        ('burstseqfirst', 'H', 0),      # ???
+        ('burstseqlast', 'H', 0),       # ???
         ('chunknumber', 'I', 0),        # ???
+        ('checksum', 'I', 0),           # CRC32
     )
 
     def __init__(self, rtpmabrdata=None):
         super(RTPMABRSTITCHER, self).__init__()
         self.id = self.ID
-        self.length += 2
+        self.length += 3                # in 4 bytes
         if rtpmabrdata is not None:
             self._type = rtpmabrdata._type
             self.seq = rtpmabrdata.seq
@@ -63,6 +65,12 @@ class RTPMABRSTITCHER(RTPMABRDATA):
             self.csrc = rtpmabrdata.csrc
 
             self.data = rtpmabrdata.data
+
+    def updateChecksum(self, buff):
+        self._checksum= binascii.crc32(buff) & 0xffffffff
+
+    def validateChecksum(self, buff):
+        return binascii.crc32(buff) & 0xffffffff == self._checksum
 
     def unpack(self, buf):
         super(RTPMABRDATA, self).unpack(buf)
