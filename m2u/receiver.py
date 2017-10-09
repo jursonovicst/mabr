@@ -74,10 +74,10 @@ class Receiver(threading.Thread):
                         rtp_pkt=RTPMABRSTITCHER()
                         rtp_pkt.unpack(data)
                     else:
-                        self._logger.warning('Non MABR RTP packet)')
+                        self._logger.warning('Non MABR RTP packet (id=%02x)' % rtp_pkt.id)
                         continue
                 else:
-                    self._logger.warning('Non MABR RTP packet)')
+                    self._logger.warning('Non MABR RTP packet (RTP extension is missing)')
                     continue
 
                 # store data

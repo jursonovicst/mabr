@@ -28,6 +28,11 @@ class RTPMABRDATA(RTPEXT):
         ('bytemax', 'I', 0),    # slice's ending byte offset in the fragment
     )
 
+    def __init__(self, rtpmabrdata=None):
+        super(RTPMABRDATA, self).__init__()
+        self.id = self.ID
+        self.length = 2
+
     def unpack(self, buf):
         super(RTPMABRDATA, self).unpack(buf)
         if self.id !=  RTPMABRDATA.ID:
@@ -51,8 +56,8 @@ class RTPMABRSTITCHER(RTPMABRDATA):
             self.seq = rtpmabrdata.seq
             self.ts = rtpmabrdata.ts
             self.ssrc = rtpmabrdata.ssrc
-            self.id = RTPMABRSTITCHER.ID
-            self.length = 4
+            self.id = self.ID
+            self.length = super(RTPMABRSTITCHER, self).length + 2
             self.bytemin = rtpmabrdata.bytemin
             self.bytemax = rtpmabrdata.bytemax
             self.csrc = rtpmabrdata.csrc
@@ -62,4 +67,4 @@ class RTPMABRSTITCHER(RTPMABRDATA):
     def unpack(self, buf):
         super(RTPMABRDATA, self).unpack(buf)
         if self.id !=  RTPMABRSTITCHER.ID:
-            raise Exception("Invalid RTPMABRDATA packet format")
+            raise Exception("Invalid RTPMABRSTITCHER packet format")
