@@ -39,8 +39,8 @@ class Receiver(threading.Thread):
         self._run = True
 
         # joining MC group
+        self._sock.bind(('', self._mcast_port))   #may causes issues in windows
         self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, socket.inet_aton(self._mcast_grp) + socket.inet_aton(self._mcip))
-#        self._sock.bind((self._mcast_grp, self._mcast_port))   #may causes issues in windows
 
 #        self._sock.setsockopt(socket.SOL_IP, socket.IP_MULTICAST_IF, socket.INADDR_ANY if self._mcip == '0.0.0.0' else socket.inet_aton(self._mcip))
 #        mreq = struct.pack('4sl', socket.inet_aton(self._mcast_grp), socket.INADDR_ANY if self._mcip == '0.0.0.0' else socket.inet_aton(self._mcip))
@@ -63,30 +63,35 @@ class Receiver(threading.Thread):
                     self._logger.warning('Foregin RTP stream (ssrc=%d, but expecting %d)' % (int(rtp_pkt.ssrc),self._ssrc))     #TODO: implement received from...
                     continue
 
-                if rtp_pkt.x == 1 and rtp_pkt.m == 0:
-                    rtp_pkt=RTPMABRDATA()
+                if rtp_pkt.x == 1:
+                    rtp_pkt=RTPEXT()
                     rtp_pkt.unpack(data)
 
-                elif rtp_pkt.x == 1 and rtp_pkt.m == 1:
-                    rtp_pkt=RTPMABRSTITCHER()
-                    rtp_pkt.unpack(data)
-
+                    if rtp_pkt.id == RTPMABRDATA.ID:
+                        rtp_pkt = RTPMABRDATA()
+                        rtp_pkt.unpack(data)
+                    elif rtp_pkt.id == RTPMABRSTITCHER.ID:
+                        rtp_pkt=RTPMABRSTITCHER()
+                        rtp_pkt.unpack(data)
+                    else:
+                        self._logger.warning('Non MABR RTP packet)')
+                        continue
                 else:
-                    self._logger.warning('Non MAVR RTP packet)')
+                    self._logger.warning('Non MABR RTP packet)')
                     continue
 
                 # store data
                 key = str(rtp_pkt.ssrc) + ":" + str(rtp_pkt.seq)
                 if self._memcached.set(key, rtp_pkt.data):
-                    self.logger.debug('RTP packet stored: ssrc=%s, seq=%d, representation_id=%d, chunknumber=%d' % (rtp_pkt.ssrc, rtp_pkt.seq, rtp_pkt.representationid, rtp_pkt.chunknumber))
+                    self._logger.debug('RTP packet stored: ssrc=%s, seq=%d' % (rtp_pkt.ssrc, rtp_pkt.seq))
                 else:
-                    self.logger.warning('Cannot store RTP packet: ssrc=%s, seq=%d, representation_id=%d, chunknumber=%d' % (rtp_pkt.ssrc, rtp_pkt.seq, rtp_pkt.representationid, rtp_pkt.chunknumber))
+                    self._logger.warning('Cannot store RTP packet: ssrc=%s, seq=%d' % (rtp_pkt.ssrc, rtp_pkt.seq))
 
 
 
                 # trigger stitcher
                 if rtp_pkt.m == 1:
-                    self.logger.debug('Last RTP packet of a segment received, initiate stitching: ssrc=%s, seq=%d, representation_id=%d, chunknumber=%d' % (rtp_pkt.ssrc, rtp_pkt.seq, rtp_pkt.representationid, rtp_pkt.chunknumber))
+                    self._logger.debug('Last RTP packet of a segment received, initiate stitching: ssrc=%s, seq=%d, representation_id=%d, chunknumber=%d' % (rtp_pkt.ssrc, rtp_pkt.seq, rtp_pkt.representationid, rtp_pkt.chunknumber))
                     Stitcher.stitch(rtp_pkt.ssrc, rtp_pkt.seqmin, rtp_pkt.seqmax, rtp_pkt.chunknumber, self._logger)
 
 

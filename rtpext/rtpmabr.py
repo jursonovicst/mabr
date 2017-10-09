@@ -8,13 +8,22 @@ from dpkt.rtp import RTP
 import socket, struct
 
 
+class RTPEXT(RTP):
+    __hdr__ = RTP.__hdr__ + (
+        ('id', 'H', 0x0000),    # RTP extension header identifier
+        ('length', 'H', 0),     # RTP extension header length, fix value, to be updated, if header changes!
+    )
+
+    def unpack(self, buf):
+        super(RTPEXT, self).unpack(buf)
+
+
+
 # RTP packet to hold slices of fragments. Not the last fragment
-class RTPMABRDATA(RTP):
+class RTPMABRDATA(RTPEXT):
     ID = 0xabba
 
-    __hdr__ = RTP.__hdr__ + (
-        ('id', 'H', ID),        # RTPMABRDATA extension header identifier
-        ('length', 'H', 2),     # RTPMABRDATA extension header length, fix value, to be updated, if header changes!
+    __hdr__ = RTPEXT.__hdr__ + (
         ('bytemin', 'I', 0),    # slice's starting byte offset in the fragment
         ('bytemax', 'I', 0),    # slice's ending byte offset in the fragment
     )
