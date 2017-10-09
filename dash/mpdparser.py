@@ -54,7 +54,7 @@ class MPDParser:
 
         for representation in self._mpdroot.findall('.//ns:Representation', MPDParser._ns):
             for segmenttemplate in representation.findall('.//ns:SegmentTemplate', MPDParser._ns):
-                yield (segmenttemplate.attrib['media'].replace('$RepresentationID$',representation.attrib['id']).replace('.','\.').replace('$Number$', '\d+'), representation.attrib['id'])
+                yield (segmenttemplate.attrib['media'].replace('$RepresentationID$',representation.attrib['id']).replace('.','\.').replace('$Number$', '(\d+)'), representation.attrib['id'])
 
     def getInitializationPatterns(self):
         if self._mpdroot is None:

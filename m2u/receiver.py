@@ -7,6 +7,7 @@ from stitcher import *
 from dpkt.rtp import RTP
 from rtpext import *
 import sys, traceback
+from channels import *
 
 import imp
 try:
@@ -81,8 +82,7 @@ class Receiver(threading.Thread):
                     continue
 
                 # store data
-                key = str(rtp_pkt.ssrc) + ":" + str(rtp_pkt.seq)
-                if not self._memcached.set(key, rtp_pkt.data):
+                if not self._memcached.set(Slice.getmemcachedkey(rtp_pkt.ssrc, rtp_pkt.seq), rtp_pkt.data):
                     self._logger.warning('Cannot store RTP packet: ssrc=%s, seq=%d' % (rtp_pkt.ssrc, rtp_pkt.seq))
 #                else:
 #                    self._logger.debug('RTP packet stored: ssrc=%s, seq=%d' % (rtp_pkt.ssrc, rtp_pkt.seq))

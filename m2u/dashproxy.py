@@ -48,16 +48,18 @@ def MakeHandlerClass(logger, ingestproxy, mcip, memcachedaddress):
         def do_GET(self):
 
 
-            #Check Host header
+            # check Host header
             if 'Host' not in self.headers:
                 self.send_response(400)
                 self.wfile.write("No Host header specified.")
                 self._logger.warning("No Host header specified.")
                 return
 
+            # remove port from url if any
             host = re.sub(':\d+$', '', self.headers['Host'])
 
-            if not Channel.validatefqdn(host):
+            # check if FQDN matches with channel configured
+            if not Channel.validateFQDN(host):
                 self.send_response(401)
                 self.wfile.write("FQDN '%s' not configured to proxy." % host)
                 self._logger.warning("FQDN '%s' not configured to proxy." % host)
@@ -69,7 +71,9 @@ def MakeHandlerClass(logger, ingestproxy, mcip, memcachedaddress):
                 ######################
                 # mpd                #
                 ######################
-                channel = Channel.getChannelByID(host, self.path)
+
+                # find channel (if any)
+                channel = Channel.getChannelByMPDURL(host, self.path)
                 if channel is not None:
                     # match on one channel
                     self._logger.debug("parse mpd: '%s'" % requesturl)
@@ -82,14 +86,14 @@ def MakeHandlerClass(logger, ingestproxy, mcip, memcachedaddress):
                     for template, representationid in mpdparser.getMediaPatterns():
                         mediapattern = os.path.dirname(self.path) + '/' + template
 
-                        channel.findStream(representationid).setMedia(mediapattern)
+                        channel.findStream(representationid).setMediaPattern(mediapattern)
                         self._logger.debug("Add '%s' pattern for multicast delivery." % mediapattern)
 
                     # parse url templates for multicast
                     for template, representationid in mpdparser.getInitializationPatterns():
                         initializationpattern = os.path.dirname(self.path) + '/' + template
 
-                        channel.findStream(representationid).setInitialization(initializationpattern)
+                        channel.findStream(representationid).setInitializationPattern(initializationpattern)
                         self._logger.debug("Add '%s' pattern for passthrough." % initializationpattern)
 
 
@@ -107,10 +111,10 @@ def MakeHandlerClass(logger, ingestproxy, mcip, memcachedaddress):
                 ######################
                 # media              #
                 ######################
-                channel = Channel.getChannelByChunk(host, self.path)
-                if channel is not None:
+                channel, stream = Channel.getChannelByURL(host, self.path)
+                if channel is not None and stream is not None:
                     #check, if the whole fragment is in memcached
-                    chunk = self._memcached.get(channel.getIngestUrl(self.path))
+                    chunk = self._memcached.get(Chunk.getmemcachedkey(stream.getSSRC(), stream.getChunknumberFromPath(self.path)))
 
                     if not chunk:
                         self._logger.warning("cache miss: '%s'" % requesturl)
@@ -124,7 +128,7 @@ def MakeHandlerClass(logger, ingestproxy, mcip, memcachedaddress):
                 ######################
                 # initialization     #
                 ######################
-                channel = Channel.getChannelByInitSegment(host, self.path)
+                channel = Channel.getChannelByInitSegmentURL(host, self.path)
                 if channel is not None:
                     self._logger.debug("cache passthg: '%s'" % requesturl)
                     self.passthrough(channel.getIngestUrl(self.path))
@@ -183,8 +187,10 @@ def MakeHandlerClass(logger, ingestproxy, mcip, memcachedaddress):
                 self.wfile.write(buff)
 
             except Exception as e:
+                print e.message
                 self.send_response(500)
                 self.wfile.write(e.message)
+
 
         #silence logging
         def log_message(self, format, *args):

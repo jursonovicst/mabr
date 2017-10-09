@@ -1,6 +1,7 @@
 import threading
 import Queue
 import signal, os
+from channels import *
 
 import imp
 
@@ -40,41 +41,43 @@ class Stitcher(threading.Thread):
                 #find my stream
 
 
-                keys = []
+                memcachedkeys = []
                 if burstseqlast >= burstseqfirst:
                     for seq in range(burstseqfirst, burstseqlast):
-                        keys.append(str(ssrc) + ":" + str(seq))
+                        memcachedkeys.append(Slice.getmemcachedkey(ssrc,seq))
 
                 #handle RTP seq overflow
                 else:
-                    for seq in range(burstseqfirst, 2 ** 32-1):
-                        keys.append(str(ssrc) + ":" + str(seq))
+                    for seq in range(burstseqfirst, 2 ** 16-1):
+                        memcachedkeys.append(Slice.getmemcachedkey(ssrc,seq))
                     for seq in range(0, burstseqlast):
-                        keys.append(str(ssrc) + ":" + str(seq))
+                        memcachedkeys.append(Slice.getmemcachedkey(ssrc,seq))
 
                 # get all slices from memcached
-                ret = self._memcached.get_multi(keys)
+                ret = self._memcached.get_multi(memcachedkeys)
 
-                # calculate packet loss rate
-                packetlossrate = 1-(float(len(ret.keys())) / (len(keys)+0.0000001))
-                if packetlossrate < 0.01:
-                    self._logger.debug("packet loss rate: %d%%" % (packetlossrate * 100))
-                elif packetlossrate < 0.05:
-                    self._logger.warning("packet loss rate: %d%%" % (packetlossrate * 100))
-                else:
-                    self._logger.error("packet loss rate: %d%%" % (packetlossrate * 100))
 
                 chunk = ''
-                for seq in keys:
+                for key in memcachedkeys:
                     try:
-                        chunk += ret[str(ssrc) + ":" + str(seq)]
+                        chunk += ret[key]
                     except KeyError:
-                        self._logger.warning("Packet rtpseq=%d has been lost --> retransmission (not yet implemented)!" % seq)
+                        #self._logger.warning("Packet rtpseq=%s has been lost --> retransmission (not yet implemented)!" % seq)
                         continue
 
                 #check fragment size
-                self._logger.debug("Fragment chunknumber=%d has been stitched!" % chunknumber)
-                #print "gjgjhgh" + str(len(chunk))
+
+                # calculate packet loss rate
+                packetlossrate = 1.0-(float(len(ret.keys())) / (len(memcachedkeys)+0.0000001))
+                if packetlossrate < 0.01:
+                    self._logger.debug("Fragment chunknumber=%d has been stitched, packet loss rate: %d%%" % (chunknumber, packetlossrate * 100))
+                elif packetlossrate < 0.05:
+                    self._logger.warning("Fragment chunknumber=%d has been stitched, packet loss rate: %d%%" % (chunknumber, packetlossrate * 100))
+                else:
+                    self._logger.error("Fragment chunknumber=%d has been stitched, packet loss rate: %d%%" % (chunknumber, packetlossrate * 100))
+
+                #store in memcached
+                self._memcached.set(Chunk.getmemcachedkey(ssrc,chunknumber), chunk)
 
 
             except Queue.Empty:

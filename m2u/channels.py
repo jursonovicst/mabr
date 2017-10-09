@@ -15,8 +15,6 @@ class Channel:
 
         servicefqdn = config.get('general', 'servicefqdn').lower()
         mpdpath = config.get('general', 'mpdpath')
-        print servicefqdn
-        print mpdpath
 
         if (servicefqdn,mpdpath) in cls._channels:
             raise Exception('Channel (%s, %s) already defined by %s' % (servicefqdn, mpdpath, configfp.name))
@@ -25,7 +23,7 @@ class Channel:
 
     # find and return a Channel instance
     @classmethod
-    def getChannelByID(cls, servicefqdn, mpdpath):
+    def getChannelByURL(cls, servicefqdn, mpdpath):
         try:
             return cls._channels[(servicefqdn,mpdpath)]
         except KeyError:
@@ -33,33 +31,41 @@ class Channel:
 
     # check if an fqdn is configured to any channel
     @classmethod
-    def validatefqdn(cls, fqdn):
+    def validateFQDN(cls, fqdn):
         for key in cls._channels:
-            print key
             if key[0] == fqdn.lower():
                 return True
 
         return False
 
-    # check if an fqdn and path matches one chunkpattern
+
     @classmethod
-    def getChannelByChunk(cls, fqdn, path):
+    def getChannelByMPDURL(cls, fqdn, path):
+        if cls._channels.has_key((fqdn, path)):
+            return cls._channels[(fqdn, path)]
+
+        return None
+
+
+    @classmethod
+    def getChannelByInitSegmentURL(cls, fqdn, path):
         for ckey in cls._channels:
             for skey in cls._channels[ckey]._streams:
-                if cls._channels[ckey]._servicefqdn == fqdn and re.match(cls._channels[ckey]._streams[skey]._media, path):
+                if cls._channels[ckey]._servicefqdn == fqdn and re.match(cls._channels[ckey]._streams[skey].getInitializationPattern(), path):
                     return cls._channels[ckey]
 
         return None
 
-    # check if an fqdn and path matches one chunkpattern
+
     @classmethod
-    def getChannelByInitSegment(cls, fqdn, path):
-        for ckey in cls._channels:
-            for skey in cls._channels[ckey]._streams:
-                if cls._channels[ckey]._servicefqdn == fqdn and re.match(cls._channels[ckey]._streams[skey]._initialization, path):
-                    return cls._channels[ckey]
+    def getChannelByURL(cls, fqdn, path):
+        for channel in cls._channels.itervalues():
+            for stream in channel.getStreams():
+                if channel.getServiceFQDN() == fqdn and re.match(stream.getMediaPattern(), path):
+                    return channel, stream
 
         return None
+
 
 
 
@@ -68,20 +74,23 @@ class Channel:
         self._mpdpath = config.get('general', 'mpdpath')
         self._ingestfqdn = config.get('general', 'ingestfqdn')
 
-        self._streams = {}
-        for section in config.sections():
+        self._streams = {}      # indexed by (representationid)
+
+        for section in config.sections():       # section represents the representationid
             if section == 'general':
                 continue
 
-            self._streams[section] = Stream(config, section)    #section represents the representationid
-
-        pass
+            self._streams[section] = Stream(config, section)
 
     def getMPDRequestUrl(self):
         return "http://%s%s" % (self._servicefqdn, self._mpdpath)
 
     def getMPDIngestUrl(self):
         return "http://%s%s" % (self._ingestfqdn, self._mpdpath)
+
+    def getStreams(self):
+        for stream in self._streams.itervalues():
+            yield stream
 
     def findStream(self, representationid):
         try:
@@ -100,9 +109,8 @@ class Channel:
         for representationid in self._streams:
             yield representationid
 
-    def getStreams(self):
-        for key in self._streams:
-            yield self._streams[key]
+    def getServiceFQDN(self):
+        return self._servicefqdn
 
 #    def getMCParams(self):
 #        for representationid in self._streams:
@@ -117,28 +125,54 @@ class Channel:
 
 class Stream: #=representation or an RTP stream
 
-    def __init__(self, config, section):
-        self._representationid = section
-        self._mcast_grp = config.get(section, 'mcast_grp')
-        self._mcast_port = config.getint(section, 'mcast_port')
-        self._ssrc = config.getint(section, 'ssrc')
-        self._media = None                # store the mpd media path pattern
-        self._initialization = None       # store the mpd initialization path pattern
+    def __init__(self, config, representationid):
+        self._representationid = representationid
+        self._mcast_grp = config.get(representationid, 'mcast_grp')         # representationid represents the section in the config
+        self._mcast_port = config.getint(representationid, 'mcast_port')
+        self._ssrc = config.getint(representationid, 'ssrc')
+        self._mediapattern = None                # store the mpd media path pattern
+        self._initializationpattern = None       # store the mpd initialization path pattern
 
         self._rtplog = {}
 
     def getMCParam(self):
         return (self._mcast_grp, self._mcast_port, self._ssrc)
 
-    def setMedia(self, pattern):
-        self._media = pattern
+    def getSSRC(self):
+        return self._ssrc
 
-    def setInitialization(self, pattern):
-        self._initialization = pattern
+    def getChunknumberFromPath(self, path):
+        m=re.match(self._mediapattern, path)
+        return m.group(1)
 
-class chunk:
+    def getMediaPattern(self):
+        return self._mediapattern
+
+    def setMediaPattern(self, pattern):
+        self._mediapattern = pattern
+
+    def getInitializationPattern(self):
+        return self._initializationpattern
+
+    def setInitializationPattern(self, pattern):
+        self._initializationpattern = pattern
+
+
+class Chunk:
+
+    @staticmethod
+    def getmemcachedkey(ssrc, chunknumber):
+        return "chunk:" + str(ssrc) + ":" + str(chunknumber)
 
     def __init__(self, chunknumber):
         self._chunknumber = chunknumber
 
 
+class Slice:
+
+    @staticmethod
+    def getmemcachedkey(ssrc, seq):
+        return "slice:" + str(ssrc) + ":" + str(seq)
+
+    def __init__(self, seq):
+        self._seq = seq         # RTP sequence number

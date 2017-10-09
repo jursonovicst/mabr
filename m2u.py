@@ -31,6 +31,7 @@ if __name__ == '__main__':
 
     dashproxy = None
     try:
+        logging.info("Starting...")
         dashproxy = m2u.DASHProxy(logging.getLogger("DASHProxy"), args.bind, args.port, args.CONFIG, args.proxy, args.bindmulticast, args.memcached)
 
         #this will block
