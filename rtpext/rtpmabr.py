@@ -42,6 +42,12 @@ class RTPMABRDATA(RTPEXT):
 
 # RTP packet to hold the last slices of fragments
 class RTPMABRSTITCHER(RTPMABRDATA):
+
+    @staticmethod
+    def validateChecksum(buff, checksum):
+        return binascii.crc32(buff) & 0xffffffff == checksum
+
+
     ID = 0xbaab                         # RTPMABRSTITCHER extension header identifier
 
     __hdr__ = RTPMABRDATA.__hdr__ + (   # same as above
@@ -68,9 +74,6 @@ class RTPMABRSTITCHER(RTPMABRDATA):
 
     def updateChecksum(self, buff):
         self.checksum= binascii.crc32(buff) & 0xffffffff
-
-    def validateChecksum(self, buff):
-        return binascii.crc32(buff) & 0xffffffff == self.checksum
 
     def unpack(self, buf):
         super(RTPMABRDATA, self).unpack(buf)
