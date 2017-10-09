@@ -38,13 +38,12 @@ class RTPMABRSTITCHER(RTPMABRDATA):
     def __init__(self, rtpmabrdata=None):
         super(RTPMABRSTITCHER, self).__init__()
         if rtpmabrdata is not None:
-            self._length=4
-
             self._type = rtpmabrdata._type
             self.seq = rtpmabrdata.seq
             self.ts = rtpmabrdata.ts
             self.ssrc = rtpmabrdata.ssrc
             self.id = RTPMABRSTITCHER.ID
+            self.length = 4
             self.bytemin = rtpmabrdata.bytemin
             self.bytemax = rtpmabrdata.bytemax
             self.csrc = rtpmabrdata.csrc
