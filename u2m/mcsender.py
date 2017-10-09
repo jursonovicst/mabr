@@ -106,7 +106,7 @@ class MCSender(threading.Thread):
             seqoffirstpacket = self._rtp_pkt.seq
             seqoflastpacket = self._rtp_pkt.seq + math.ceil(int(ret.headers['content-length']) / mtu)
 
-            burstseqmin = self._rtp_pkt.seq
+            burstseqfirst = self._rtp_pkt.seq
 
             while buff != "":
                 # Add retransmission information
@@ -126,8 +126,8 @@ class MCSender(threading.Thread):
                     # Last packet, set marker
                     rtp_pkt_stitcher = rtpext.RTPMABRSTITCHER(self._rtp_pkt)
                     rtp_pkt_stitcher.m = 1
-                    rtp_pkt_stitcher.burstseqmin = burstseqmin
-                    rtp_pkt_stitcher.burstseqmax = rtp_pkt_stitcher.seq
+                    rtp_pkt_stitcher.burstseqfirst = burstseqfirst
+                    rtp_pkt_stitcher.burstseqlast = rtp_pkt_stitcher.seq
                     rtp_pkt_stitcher.chunknumber = self._number
 
                     self._jobbuffer.append(str(rtp_pkt_stitcher))

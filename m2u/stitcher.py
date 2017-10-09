@@ -18,38 +18,45 @@ class Stitcher(threading.Thread):
 
 
     @classmethod
-    def stitch(cls, ssrc, burstseqmin, burstseqmax, chunknumber, logger):
-        logger.debug('Initiate stitching for: ssrc=%s, rtpseq=%d-%d, chunknumber=%d' % (ssrc, burstseqmin, burstseqmax, chunknumber))
-        cls._stitcherqueue.put_nowait((ssrc, burstseqmin, burstseqmax, chunknumber))
+    def stitch(cls, ssrc, burstseqfirst, burstseqlast, chunknumber, logger):
+        logger.debug('Initiate stitching for: ssrc=%s, rtpseq=%d-%d, chunknumber=%d' % (ssrc, burstseqfirst, burstseqlast, chunknumber))
+        cls._stitcherqueue.put_nowait((ssrc, burstseqfirst, burstseqlast, chunknumber))
 
     def __init__(self, group=None, target=None, name=None, args=(), kwarggs=None):
         threading.Thread.__init__(self, group, target, name, args, kwarggs)
 
         self._logger = args[0]
-        self._memcached = memcache.Client([args[1]], debug=0)
+        self._memcached = memcache.Client([args[1]])
 
         self._run = True
 
     def run(self):
-        laststitchedchunknumber = None
-        laststitchedseq = None
         while self._run:
             try:
                 #get stitching job
-                ssrc, seqmin, seqmax, chunknumber = Stitcher._stitcherqueue.get(True, Stitcher._timeout)
+                ssrc, burstseqfirst, burstseqlast, chunknumber = Stitcher._stitcherqueue.get(True, Stitcher._timeout)
 
                 #find my channel
                 #find my stream
 
 
                 keys = []
-                for seq in range(seqmin,seqmax):
-                    keys.append(str(ssrc) + ":" + str(seq))
+                if burstseqlast >= burstseqfirst:
+                    for seq in range(burstseqfirst, burstseqlast):
+                        keys.append(str(ssrc) + ":" + str(seq))
 
+                #handle RTP seq overflow
+                else:
+                    for seq in range(burstseqfirst, 2 ** 32-1):
+                        keys.append(str(ssrc) + ":" + str(seq))
+                    for seq in range(0, burstseqlast):
+                        keys.append(str(ssrc) + ":" + str(seq))
+
+                # get all slices from memcached
                 ret = self._memcached.get_multi(keys)
-                #if len(keys)
 
-                packetlossrate = 1-(float(len(ret.keys())) / len(keys))
+                # calculate packet loss rate
+                packetlossrate = 1-(float(len(ret.keys())) / (len(keys)+0.0000001))
                 if packetlossrate < 0.01:
                     self._logger.debug("packet loss rate: %d%%" % (packetlossrate * 100))
                 elif packetlossrate < 0.05:
@@ -58,7 +65,7 @@ class Stitcher(threading.Thread):
                     self._logger.error("packet loss rate: %d%%" % (packetlossrate * 100))
 
                 chunk = ''
-                for seq in range(seqmin,seqmax):
+                for seq in keys:
                     try:
                         chunk += ret[str(ssrc) + ":" + str(seq)]
                     except KeyError:

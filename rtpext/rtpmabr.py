@@ -39,8 +39,8 @@ class RTPMABRSTITCHER(RTPMABRDATA):
     ID = 0xbaab                         # RTPMABRSTITCHER extension header identifier
 
     __hdr__ = RTPMABRDATA.__hdr__ + (   # same as above
-        ('burstseqmin', 'H', 0),        # ???
-        ('burstseqmax', 'H', 0),        # ???
+        ('burstseqfirst', 'H', 0),        # ???
+        ('burstseqlast', 'H', 0),        # ???
         ('chunknumber', 'I', 0),        # ???
     )
 

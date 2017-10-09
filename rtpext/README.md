@@ -50,7 +50,7 @@ The RTPMABRSTITCHER header used...
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
    |                            bytemax                            |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |          burstseqmin          |          burstseqmax          |
+   |         burstseqfirst         |          burstseqlast         |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
    |                          chunknumber                          |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -67,11 +67,11 @@ bytemin (4 bytes)
 bytemax (4 bytes)
 
 
-burstseqmin (2 bytes)
+burstseqfirst (2 bytes)
   RTP sequence number of the first RTP packet of this burst of MPEG-DASH segment
 
 
-burstseqmax (2 bytes)
+burstseqlast (2 bytes)
   RTP sequence number of the last RTP packet of this burst of MPEG-DASH segment
 
 chunknumber (4 bytes)
