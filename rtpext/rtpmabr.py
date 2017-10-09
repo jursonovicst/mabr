@@ -67,10 +67,10 @@ class RTPMABRSTITCHER(RTPMABRDATA):
             self.data = rtpmabrdata.data
 
     def updateChecksum(self, buff):
-        self._checksum= binascii.crc32(buff) & 0xffffffff
+        self.checksum= binascii.crc32(buff) & 0xffffffff
 
     def validateChecksum(self, buff):
-        return binascii.crc32(buff) & 0xffffffff == self._checksum
+        return binascii.crc32(buff) & 0xffffffff == self.checksum
 
     def unpack(self, buf):
         super(RTPMABRDATA, self).unpack(buf)
