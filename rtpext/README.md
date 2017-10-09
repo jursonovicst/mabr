@@ -44,15 +44,13 @@ The RTPMABRSTITCHER header used...
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
    |           synchronization source (SSRC) identifier            |
    +=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+
-   |           id=0xbaab           |          length=5             |
+   |           id=0xbaab           |          length=4             |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
    |                            bytemin                            |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
    |                            bytemax                            |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                            seqmin                             |
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                            seqmax                             |
+   |          burstseqmin          |          burstseqmax          |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
    |                          chunknumber                          |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -69,10 +67,11 @@ bytemin (4 bytes)
 bytemax (4 bytes)
 
 
-seqmin (4 bytes)
+burstseqmin (2 bytes)
+  RTP sequence number of the first RTP packet of this burst of MPEG-DASH segment
 
 
-seqmax (4 bytes)
-
+burstseqmax (2 bytes)
+  RTP sequence number of the last RTP packet of this burst of MPEG-DASH segment
 
 chunknumber (4 bytes)
