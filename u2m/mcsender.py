@@ -91,7 +91,7 @@ class MCSender(threading.Thread):
             message = "Accessing segment '%s':" % url
 
             ret = self._opener.open(url)                                                #TODO: timeout
-            message += " HTTP %s (%s byte)" % (ret.getcode(),ret.headers['content-length'])
+            message += " HTTP %s (%s byte" % (ret.getcode(),ret.headers['content-length'])
 
             # 2. send it out in parts
             representationid_padded = self._representationid + ("\0" * ((4 - len(self._representationid) % 4) % 4))
@@ -130,6 +130,7 @@ class MCSender(threading.Thread):
                     rtp_pkt_stitcher.burstseqlast = rtp_pkt_stitcher.seq
                     rtp_pkt_stitcher.chunknumber = self._number
                     rtp_pkt_stitcher.updateChecksum(chunk)
+                    message += ", %s checksum" % rtpext.RTPMABRSTITCHER.checksum2str(rtp_pkt_stitcher.checksum)
 
                     self._jobbuffer.append(str(rtp_pkt_stitcher))
 
@@ -140,7 +141,7 @@ class MCSender(threading.Thread):
                 numberofsentpackets += 1
                 self._rtp_pkt.seq = (self._rtp_pkt.seq + 1) % 65536
 
-            message += " (%d packets)" % numberofsentpackets
+            message += ", %d packets)" % numberofsentpackets
 
             self._logger.debug(message)
 
