@@ -99,7 +99,9 @@ class MPDParser:
                                                                                         int(segmenttemplate.attrib['duration'])/int(segmenttemplate.attrib['timescale']),
                                                                                         self._proxy,        # 7
                                                                                         self._logger.getChild('MCSender(repid%s)'%representation.attrib['id']),       # 8
-                                                                                        int(representation.attrib['bandwidth'])*float(self._config.get('general','bwfactor'))  #9
+                                                                                        int(representation.attrib['bandwidth'])*float(self._config.get('general','bwfactor')),  #9
+                                                                                        self._config.getint('general','mtu'),  #10
+                                                                                        self._config.getint('general','mcast_ttl')    #11
                                                                                        ))
                         p.start()
                         self._jobs.append(p)
