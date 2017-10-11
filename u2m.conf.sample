@@ -9,6 +9,19 @@
 #
 ingestfqdn=example.host
 mpdpath=/folder/manifest.mpd
+servicefqdn=cdn.host
+
+#
+#to avoid RTP bursts, multicast stream throughput should be shaped. This factor sets the maximum throughput based on the stream's bandwidth.
+#
+bwfactor=1.2
+
+#
+# MTU
+#
+mtu = 1500
+mcast_ttl = 5
+
 
 
 #
@@ -18,13 +31,18 @@ mpdpath=/folder/manifest.mpd
 #
 [$RepresentationoID$]	
 
-#
-# The destination multicast IP address and port
-#
-mcast_grp=239.0.1.1
-mcast_port=2000
+  #
+  # The destination multicast IP address and port
+  #
+  mcast_grp=239.0.1.1
+  mcast_port=2000
 
-#
-# A static ssrc for this representation to avoid ssrc changes by daemon restart.
-#
-ssrc=1
+  #
+  # A static ssrc for this representation to avoid ssrc changes by daemon restart.
+  #
+  ssrc=1
+
+
+
+
+
