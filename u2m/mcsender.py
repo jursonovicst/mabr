@@ -27,6 +27,8 @@ class MCSender(threading.Thread):
         self._opener = urllib2.build_opener(proxy_handler)
         self._logger = args[8]
         self._bandwidthcap = float(args[9])
+        self._mtu=int(args[10])
+        self._mcast_ttl=int(args[11])
 
         # Fetch
         self._fetchtimer = None
@@ -43,7 +45,7 @@ class MCSender(threading.Thread):
         self._run = False
         self._timeoffset_ut = None
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 32)   #by default, TTL for multicast is 1, increase this value to send to other networks.
+        self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, self._mcast_ttl)   #by default, TTL for multicast is 1, increase this value to send to other networks.
         self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1)
 
 
@@ -59,6 +61,8 @@ class MCSender(threading.Thread):
         self._rtp_pkt.seq = random.randint(0,65535)     #start with random RTP sequence number
         self._rtp_pkt.ts=0x00
         self._rtp_pkt.ssrc=self._ssrc
+
+        self._hurry=0
 
 
     def _tokencallback(self, period, fireat_wc):
@@ -80,27 +84,49 @@ class MCSender(threading.Thread):
 
     def _fetchcallback(self, fireat_wc):
         message = ""
+
         try:
             # 0. Set next timer and compensate drift from wc(wallclock)
             drift = time.time() - fireat_wc
-            self._fetchtimer = threading.Timer(self._period - drift, MCSender._fetchcallback, [self, fireat_wc + self._period])
-            self._fetchtimer.start()
 
             # 1. Load segment
             url = string.replace(self._urltemplate, "$Number$", str(self._number))     #keep in mind, that ffmpeg default setting is not compatible: %05d stuff...
-            message = "Accessing segment '%s':" % url
 
-            ret = self._opener.open(url)                                                #TODO: timeout
+            retcode=404
+            while(retcode == 404):
+                message = "Accessing segment '%s':" % url
+
+                try:
+                    ret = self._opener.open(url)
+                    retcode = ret.getcode()
+
+                    #we were on time, let's hurry a bit more next time
+                    self._hurry += (0 if self._hurry > self._period*0.2 else 0.01)
+                except urllib2.HTTPError as e:
+                    if e.code == 404:
+                        #we were (hopefully) too early, lets slow down a bit
+                        #self._period += (0.01*5)
+                        message += " HTTP %s (%s)" % (e.code, e.reason)
+                        self._logger.debug(message)
+                        time.sleep(0.01)
+                        self._hurry = -0.1
+                    else:
+                        raise e
+
+            self._fetchtimer = threading.Timer(self._period - drift, MCSender._fetchcallback, [self, fireat_wc + self._period - self._hurry])
+            self._fetchtimer.start()
+
+
             message += " HTTP %s (%s byte" % (ret.getcode(),ret.headers['content-length'])
 
             # 2. send it out in parts
             representationid_padded = self._representationid + ("\0" * ((4 - len(self._representationid) % 4) % 4))
                         #ADSL   IP  UDP RTP RTPe    RTPeh
-            mtu = 1500  -4      -20 -8  -12 -4      -6*4
+            readsize = self._mtu  -4      -20 -8  -12 -4      -6*4
             readpos = 0
             numberofsentpackets = 0
 
-            buff=ret.read(mtu)
+            buff=ret.read(readsize)
             chunk=buff
             self._rtp_pkt.m = 0
             self._rtp_pkt.ts = self._calctimestamp(90000)
@@ -117,7 +143,7 @@ class MCSender(threading.Thread):
 
                 # Next packet
                 readpos += len(buff)
-                buff = ret.read(mtu)
+                buff = ret.read(readsize)
                 chunk += buff
                 if buff != "":
                     # Put it into the jonbuffer
@@ -141,7 +167,7 @@ class MCSender(threading.Thread):
                 numberofsentpackets += 1
                 self._rtp_pkt.seq = (self._rtp_pkt.seq + 1) % 65536
 
-            message += ", %d packets)" % numberofsentpackets
+            message += ", %d packets, period: %.03f)" % (numberofsentpackets, self._period - self._hurry)
 
             self._logger.debug(message)
 
@@ -160,7 +186,7 @@ class MCSender(threading.Thread):
         self._fetchcallback(time.time())
 
         # Start adding tokens, set the bitrate limit here by calculating how frequently a packet can leave
-        self._tokencallback(1500.0 * 8.0 / self._bandwidthcap / 1.1, time.time())
+        self._tokencallback(self._mtu * 8.0 / self._bandwidthcap / 1.1, time.time())
 
         self._logger.info("Sending representation '%s' to %s:%d (ssrc: %d, bwcap: %.2fMbps)" % (self._representationid, self._mcast_grp, self._mcast_port, self._ssrc, self._bandwidthcap / 1000 / 1000))
         try:
@@ -175,12 +201,12 @@ class MCSender(threading.Thread):
                 self._sock.sendto(self._jobbuffer.pop(0), (self._mcast_grp, self._mcast_port))
 
         except KeyboardInterrupt:
-            print "zzz"
-        finally:
-            self._tokentimer.cancel()
-            self._fetchtimer.cancel()
-            self._opener.close()
-            self._logger.debug("Exiting...")
+            pass
+
+        self._tokentimer.cancel()
+        self._fetchtimer.cancel()
+        self._opener.close()
+        self._logger.debug("Exiting...")
 
     def stop(self):
         self._run = False
