@@ -20,6 +20,7 @@ ExecStart = /usr/local/bin/ffmpeg -nostats \
           -use_template 1 \
           -use_timeline 0 \
           -media_seg_name "chunk-stream$RepresentationID$-$Number$.m4s" \
+          -min_buffer_time 5 \
   ${DST}/${NAME}.mpd
 
 #  -vf "drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf:timecode='00\:00\:00\:00':rate=30:text='Wall clock time before encoding\: %{localtime\: %T %Z} ':fontsize=36:fontcolor='yellow':boxcolor=black@0.4:box=1:x=10:y=10" \
