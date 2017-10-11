@@ -45,8 +45,15 @@ class RTPMABRSTITCHER(RTPMABRDATA):
 
     @staticmethod
     def validateChecksum(buff, checksum):
-        return binascii.crc32(buff) & 0xffffffff == checksum
+        return (RTPMABRSTITCHER.checksum(buff) == checksum)
 
+    @staticmethod
+    def checksum(buff):
+        return binascii.crc32(buff) & 0xffffffff
+
+    @staticmethod
+    def checksum2str(checksum):
+        return "0x%08x" % checksum
 
     ID = 0xbaab                         # RTPMABRSTITCHER extension header identifier
 
@@ -73,7 +80,7 @@ class RTPMABRSTITCHER(RTPMABRDATA):
             self.data = rtpmabrdata.data
 
     def updateChecksum(self, buff):
-        self.checksum= binascii.crc32(buff) & 0xffffffff
+        self.checksum = RTPMABRSTITCHER.checksum(buff)
 
     def unpack(self, buf):
         super(RTPMABRDATA, self).unpack(buf)
