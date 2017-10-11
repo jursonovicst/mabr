@@ -4,17 +4,15 @@ After = network.target
 
 
 [Service]
-Environment = CONFIG=ch02.conf
+Environment = CONFIGS=sample-u2m.conf sample2-u2m.conf
 
 WorkingDirectory = /home/cdn/mabr
 
-ExecStart = /usr/bin/python2.7 u2m.py $CONFIG
+ExecStart = /usr/bin/python2.7 u2m.py $CONFIGS
 
-User = cdn
+User = username
 Restart=always
 
 
 [Install]
 WantedBy = multi-user.target
-#Alias = u2md.service
-

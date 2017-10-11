@@ -31,7 +31,7 @@ if __name__ == '__main__':
         # this will block
         mpd.join()
     except KeyboardInterrupt:
-        logging.debug("Exiting...")
+        logging.info("received interrupt signal...")
     except Exception as e:
         logging.warning("Oops (%s), systemd should respawn me..." % str(e))
         logging.debug(traceback.format_exc())

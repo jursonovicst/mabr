@@ -4,13 +4,16 @@ import os
 import urllib2
 import dash
 import Queue
+import traceback
+import sys
+import re
+
 
 import imp
 try:
-  imp.find_module('memcache')
+    imp.find_module('memcache')
 except ImportError:
-  print("This scrypt requires memcache python library, please install python-memcache!")
-  exit(1)
+    raise Exception("This script requires memcache python library, please install python-memcache!")
 import memcache
 
 
@@ -19,7 +22,7 @@ from stitcher import Stitcher
 from channels import *
 import time
 
-def MakeHandlerClass(logger, ingestproxy, fqdn, cdn, mcip, memcachedaddress):
+def MakeHandlerClass(logger, ingestproxy, mcip, memcachedaddress):
     class CustomHandler(BaseHTTPRequestHandler, object):
 
         _urltemplates = []
@@ -33,9 +36,7 @@ def MakeHandlerClass(logger, ingestproxy, fqdn, cdn, mcip, memcachedaddress):
 
         def __init__(self, *args, **kwargs):
             self._logger = logger
-            self._ingestproxy = ingestproxy
-            self._fqdn = fqdn
-            self._cdn = cdn
+            self._ingestproxy = None if ingestproxy == None or ingestproxy =="" else {'http': ingestproxy}
             self._mcip = mcip
             self._memcachedaddress = memcachedaddress
             self._memcached = memcache.Client([memcachedaddress], debug=0)
@@ -47,70 +48,76 @@ def MakeHandlerClass(logger, ingestproxy, fqdn, cdn, mcip, memcachedaddress):
         def do_GET(self):
 
 
-            #Check Host header
+            # check Host header
             if 'Host' not in self.headers:
                 self.send_response(400)
                 self.wfile.write("No Host header specified.")
                 self._logger.warning("No Host header specified.")
                 return
 
-            if not Channel.validatefqdn(self.headers['Host']):
+            # remove port from url if any
+            host = re.sub(':\d+$', '', self.headers['Host'])
+
+            # check if FQDN matches with channel configured
+            if not Channel.validateFQDN(host):
                 self.send_response(401)
-                self.wfile.write("FQDN '%s' not configured to proxy." % self.headers['Host'])
-                self._logger.warning("FQDN '%s' not configured to proxy." % self.headers['Host'])
+                self.wfile.write("FQDN '%s' not configured to proxy." % host)
+                self._logger.warning("FQDN '%s' not configured to proxy." % host)
                 return
 
-            requesturl = 'http://' + self.headers['Host'] + self.path
-
-            ######################
-            # mpd                #
-            ######################
-            channel = Channel.getChannelByID(self.headers['Host'], self.path)
-            if channel is not None:
-                # match on one channel
-                self._logger.debug("parse mpd: '%s'" % requesturl)
-
-                # Parse mpd
-                mpd = self.passthrough(channel.getMPDIngestUrl())
-                mpdparser = dash.MPDParser(mpd)
-
-                # parse url templates for multicast
-                for template, representationid in mpdparser.getMediaPatterns():
-                    mediapattern = os.path.dirname(self.path) + '/' + template
-
-                    channel.findStream(representationid).setMedia(mediapattern)
-                    self._logger.debug("Add '%s' pattern for multicast delivery." % mediapattern)
-
-                # parse url templates for multicast
-                for template, representationid in mpdparser.getInitializationPatterns():
-                    initializationpattern = os.path.dirname(self.path) + '/' + template
-
-                    channel.findStream(representationid).setInitialization(initializationpattern)
-                    self._logger.debug("Add '%s' pattern for passthrough." % initializationpattern)
-
-
-                # Start multicast receivers, if not already running
-                for stream in channel.getStreams():
-                    mcast_grp, mcast_port, ssrc = stream.getMCParam()
-                    receiverid = mcast_grp + ':' + str(mcast_port)
-                    if receiverid not in CustomHandler._jobs or not CustomHandler._jobs[receiverid].is_alive():
-                        p = Receiver(name="receiver-%s" % receiverid, args=(self._logger.getChild("Receiver"), self._mcip, self._memcachedaddress, stream))
-                        CustomHandler._jobs[receiverid] = p
-                        p.start()
-
-                return
-
+            requesturl = 'http://' + host + self.path
             try:
+
+                ######################
+                # mpd                #
+                ######################
+
+                # find channel (if any)
+                channel = Channel.getChannelByMPDURL(host, self.path)
+                if channel is not None:
+                    # match on one channel
+                    self._logger.debug("parse mpd: '%s'" % requesturl)
+
+                    # Parse mpd
+                    mpd = self.passthrough(channel.getMPDIngestUrl())
+                    mpdparser = dash.MPDParser(mpd)
+
+                    # parse url templates for multicast
+                    for template, representationid in mpdparser.getMediaPatterns():
+                        mediapattern = os.path.dirname(self.path) + '/' + template
+
+                        channel.findStream(representationid).setMediaPattern(mediapattern)
+                        self._logger.debug("Add '%s' pattern for multicast delivery." % mediapattern)
+
+                    # parse url templates for multicast
+                    for template, representationid in mpdparser.getInitializationPatterns():
+                        initializationpattern = os.path.dirname(self.path) + '/' + template
+
+                        channel.findStream(representationid).setInitializationPattern(initializationpattern)
+                        self._logger.debug("Add '%s' pattern for passthrough." % initializationpattern)
+
+
+                    # Start multicast receivers, if not already running
+                    for stream in channel.getStreams():
+                        mcast_grp, mcast_port, ssrc = stream.getMCParam()
+                        receiverid = mcast_grp + ':' + str(mcast_port)
+                        if receiverid not in CustomHandler._jobs or not CustomHandler._jobs[receiverid].is_alive():
+                            p = Receiver(name="receiver-%s" % receiverid, args=(self._logger.getChild("Receiver"), self._mcip, self._memcachedaddress, stream))
+                            CustomHandler._jobs[receiverid] = p
+                            p.start()
+
+                    return
+
                 ######################
                 # media              #
                 ######################
-                channel = Channel.getChannelByChunk(self.headers['Host'], self.path)
-                if channel is not None:
+                channel, stream = Channel.getChannelByURL(host, self.path)
+                if channel is not None and stream is not None:
                     #check, if the whole fragment is in memcached
-                    chunk = self._memcached.get(channel.getIngestUrl(self.path))
+                    chunk = self._memcached.get(Chunk.getmemcachedkey(stream.getSSRC(), stream.getChunknumberFromPath(self.path)))
 
                     if not chunk:
-                        self._logger.debug("cache miss: '%s'" % requesturl)
+                        self._logger.warning("cache miss: '%s'" % requesturl)
                         self.passthrough(channel.getIngestUrl(self.path))
                     else:
                         self._logger.debug("cache hit: '%s' " % requesturl)
@@ -121,7 +128,7 @@ def MakeHandlerClass(logger, ingestproxy, fqdn, cdn, mcip, memcachedaddress):
                 ######################
                 # initialization     #
                 ######################
-                channel = Channel.getChannelByInitSegment(self.headers['Host'], self.path)
+                channel = Channel.getChannelByInitSegmentURL(host, self.path)
                 if channel is not None:
                     self._logger.debug("cache passthg: '%s'" % requesturl)
                     self.passthrough(channel.getIngestUrl(self.path))
@@ -133,16 +140,30 @@ def MakeHandlerClass(logger, ingestproxy, fqdn, cdn, mcip, memcachedaddress):
                 self.wfile.write("Request %s os not part of an MPEG-DASH stream." % requesturl)
                 self._logger.warning("Request %s os not part of an MPEG-DASH stream." % requesturl)
 
+            except urllib2.HTTPError as e:
+                self.send_response(e.code)
+                self.wfile.write(e.message)
+                self._logger.debug(e.message)
+
+            except urllib2.URLError as e:
+                self.send_response(400)
+                self.wfile.write("%s could not be reached: %s" % (e.url, e.reason))
+                self._logger.debug("%s could not be reached: %s" % (e.url, e.reason))
+
             except Exception as e:
-                self._logger.warning("Oops: %s" % e.message)
+                self.send_response(500)
+                self.wfile.write("Internal server error: %s." % e.message)
+                self._logger.warning("Internal server error: %s." % e.message)
+                self._logger.debug(traceback.format_exc())
 
             return
 
         def passthrough(self, url):
-            proxy_handler = urllib2.ProxyHandler({'http': self._ingestproxy})
+            proxy_handler = urllib2.ProxyHandler(self._ingestproxy)
             opener = urllib2.build_opener(proxy_handler)
             buff = None
             res = None
+
             try:
                 res = opener.open(url)
 
@@ -153,15 +174,11 @@ def MakeHandlerClass(logger, ingestproxy, fqdn, cdn, mcip, memcachedaddress):
                 buff = res.read()
                 self.wfile.write(buff)
 
-#                self._logger.info("Passthrough url '%s'" % url)
-
-            except urllib2.HTTPError as e:
-                print res.getcode()
-                self.send_response(res.getcode())
-
-                self.wfile.write(e.message)
-            finally:
-                return buff
+                self._logger.debug("Passthrough url '%s'" % url)
+            except urllib2.URLError as e:
+                e.url = url
+                raise e
+            return buff
 
         def respond(self, buff):
             try:
@@ -170,8 +187,10 @@ def MakeHandlerClass(logger, ingestproxy, fqdn, cdn, mcip, memcachedaddress):
                 self.wfile.write(buff)
 
             except Exception as e:
+                print e.message
                 self.send_response(500)
                 self.wfile.write(e.message)
+
 
         #silence logging
         def log_message(self, format, *args):
@@ -183,17 +202,18 @@ def MakeHandlerClass(logger, ingestproxy, fqdn, cdn, mcip, memcachedaddress):
 
 class DASHProxy():
 
-    def __init__(self, logger, ip, port, configfps, ingestproxy, fqdn, cdn, mcip, memcachedaddress):
+    def __init__(self, logger, ip, port, configfps, ingestproxy, mcip, memcachedaddress):
 
         self._logger = logger
         self._ip = ip
         self._port = int(port)
 
+        # read all config files and add channels
         for configfp in configfps:
             Channel.append(configfp)
 
         # handler class for responding to http requests
-        self._myhandler = MakeHandlerClass(self._logger.getChild("HTTPServer"), ingestproxy, fqdn, cdn, mcip, memcachedaddress)
+        self._myhandler = MakeHandlerClass(self._logger.getChild("HTTPServer"), ingestproxy, mcip, memcachedaddress)
         self._server = None
 
         # used to trigger the stitching of RTP packets
@@ -212,12 +232,9 @@ class DASHProxy():
 
             # This will block and periodically check the shutdown signal
             self._server.serve_forever()
-        except KeyboardInterrupt:
-            self._logger.debug("received interrupt signal...")
-        except Exception as e:
-            self._logger.warning("Oops: %s, ..." % str(e))
-        finally:
+        except:
             self.stop()
+            raise
 
     def stop(self):
         if self._server is not None:

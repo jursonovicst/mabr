@@ -26,7 +26,7 @@ class MCSender(threading.Thread):
         proxy_handler = urllib2.ProxyHandler({'http': args[7]} if args[7] != "" else {})
         self._opener = urllib2.build_opener(proxy_handler)
         self._logger = args[8]
-        self._bandwidth = int(args[9])
+        self._bandwidthcap = float(args[9])
 
         # Fetch
         self._fetchtimer = None
@@ -56,7 +56,7 @@ class MCSender(threading.Thread):
         self._rtp_pkt.cc=0x0
         self._rtp_pkt.m=0
         self._rtp_pkt.pt=96
-        self._rtp_pkt.seq = random.randint(0,65535)
+        self._rtp_pkt.seq = random.randint(0,65535)     #start with random RTP sequence number
         self._rtp_pkt.ts=0x00
         self._rtp_pkt.ssrc=self._ssrc
 
@@ -91,7 +91,7 @@ class MCSender(threading.Thread):
             message = "Accessing segment '%s':" % url
 
             ret = self._opener.open(url)                                                #TODO: timeout
-            message += " HTTP %s (%s byte)" % (ret.getcode(),ret.headers['content-length'])
+            message += " HTTP %s (%s byte" % (ret.getcode(),ret.headers['content-length'])
 
             # 2. send it out in parts
             representationid_padded = self._representationid + ("\0" * ((4 - len(self._representationid) % 4) % 4))
@@ -101,12 +101,11 @@ class MCSender(threading.Thread):
             numberofsentpackets = 0
 
             buff=ret.read(mtu)
+            chunk=buff
             self._rtp_pkt.m = 0
             self._rtp_pkt.ts = self._calctimestamp(90000)
-            seqoffirstpacket = self._rtp_pkt.seq
-            seqoflastpacket = self._rtp_pkt.seq + math.ceil(int(ret.headers['content-length']) / mtu)
 
-            seqmin = self._rtp_pkt.seq
+            burstseqfirst = self._rtp_pkt.seq
 
             while buff != "":
                 # Add retransmission information
@@ -119,6 +118,7 @@ class MCSender(threading.Thread):
                 # Next packet
                 readpos += len(buff)
                 buff = ret.read(mtu)
+                chunk += buff
                 if buff != "":
                     # Put it into the jonbuffer
                     self._jobbuffer.append(str(self._rtp_pkt))
@@ -126,9 +126,11 @@ class MCSender(threading.Thread):
                     # Last packet, set marker
                     rtp_pkt_stitcher = rtpext.RTPMABRSTITCHER(self._rtp_pkt)
                     rtp_pkt_stitcher.m = 1
-                    rtp_pkt_stitcher.seqmin = seqmin
-                    rtp_pkt_stitcher.seqmax = rtp_pkt_stitcher.seq
+                    rtp_pkt_stitcher.burstseqfirst = burstseqfirst
+                    rtp_pkt_stitcher.burstseqlast = rtp_pkt_stitcher.seq
                     rtp_pkt_stitcher.chunknumber = self._number
+                    rtp_pkt_stitcher.updateChecksum(chunk)
+                    message += ", %s checksum" % rtpext.RTPMABRSTITCHER.checksum2str(rtp_pkt_stitcher.checksum)
 
                     self._jobbuffer.append(str(rtp_pkt_stitcher))
 
@@ -139,12 +141,13 @@ class MCSender(threading.Thread):
                 numberofsentpackets += 1
                 self._rtp_pkt.seq = (self._rtp_pkt.seq + 1) % 65536
 
-            message += " (%d packets)" % numberofsentpackets
+            message += ", %d packets)" % numberofsentpackets
+
+            self._logger.debug(message)
 
         except urllib2.HTTPError as e:
             message += " HTTP %s (%s)" % (e.code, e.reason)
-        finally:
-            self._logger.info(message)
+            self._logger.warning(message)
 
         self._number += 1
 
@@ -157,9 +160,9 @@ class MCSender(threading.Thread):
         self._fetchcallback(time.time())
 
         # Start adding tokens, set the bitrate limit here by calculating how frequently a packet can leave
-        self._tokencallback(1500.0*8.0/self._bandwidth / 1.1, time.time())
+        self._tokencallback(1500.0 * 8.0 / self._bandwidthcap / 1.1, time.time())
 
-        self._logger.info("Sending representation '%s' to %s:%d (ssrc: %d)" % (self._representationid, self._mcast_grp, self._mcast_port, self._ssrc))
+        self._logger.info("Sending representation '%s' to %s:%d (ssrc: %d, bwcap: %.2fMbps)" % (self._representationid, self._mcast_grp, self._mcast_port, self._ssrc, self._bandwidthcap / 1000 / 1000))
         try:
             while self._run:
                 # Get a token
