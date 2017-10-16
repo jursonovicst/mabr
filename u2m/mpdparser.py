@@ -88,21 +88,21 @@ class MPDParser:
                     try:
                         mcast_grp = self._config.get(representation.attrib['id'], 'mcast_grp')
                         mcast_port = self._config.get(representation.attrib['id'], 'mcast_port')
-                        ssrc = self._config.get(representation.attrib['id'], 'ssrc')
+                        ssrc = self._config.getint(representation.attrib['id'], 'ssrc')
                         urltemplate = os.path.dirname(mpdurl) + "/" + segmenttemplate.attrib['media']
-                        p = MCSender(name="u2m-%s" % representation.attrib['id'], args=(mcast_grp,          # 0
-                                                                                        int(mcast_port),    # 1
-                                                                                        int(ssrc),          # 2
-                                                                                        urltemplate,        # 3
-                                                                                        representation.attrib['id'],    #4
-                                                                                        self._calculateLastNumber(segmenttemplate.attrib['timescale'], segmenttemplate.attrib['duration'], segmenttemplate.attrib['startNumber'], mpdroot.attrib['availabilityStartTime'], mpdroot.attrib['presentationTimeOffset'] if 'presentationTimeOffset' in mpdroot.attrib else 0, mpdroot.attrib['suggestedPresentationDelay'] if 'suggestedPresentationDelay' in mpdroot.attrib else 0),
-                                                                                        int(segmenttemplate.attrib['duration'])/int(segmenttemplate.attrib['timescale']),
-                                                                                        self._proxy,        # 7
-                                                                                        self._logger.getChild('MCSender(repid%s)'%representation.attrib['id']),       # 8
-                                                                                        int(representation.attrib['bandwidth'])*float(self._config.get('general','bwfactor')),  #9
-                                                                                        self._config.getint('general','mtu'),  #10
-                                                                                        self._config.getint('general','mcast_ttl')    #11
-                                                                                       ))
+                        p = MCSender(name="u2m-%d" % ssrc, args=(mcast_grp,          # 0
+                                                                 int(mcast_port),    # 1
+                                                                 int(ssrc),          # 2
+                                                                 urltemplate,        # 3
+                                                                 representation.attrib['id'],    #4
+                                                                 self._calculateLastNumber(segmenttemplate.attrib['timescale'], segmenttemplate.attrib['duration'], segmenttemplate.attrib['startNumber'], mpdroot.attrib['availabilityStartTime'], mpdroot.attrib['presentationTimeOffset'] if 'presentationTimeOffset' in mpdroot.attrib else 0, mpdroot.attrib['suggestedPresentationDelay'] if 'suggestedPresentationDelay' in mpdroot.attrib else 0),
+                                                                 int(segmenttemplate.attrib['duration'])/int(segmenttemplate.attrib['timescale']),
+                                                                 self._proxy,        # 7
+                                                                 self._logger.getChild('MCSender-%d' % ssrc),       # 8
+                                                                 int(representation.attrib['bandwidth'])*float(self._config.get('general','bwfactor')),  #9
+                                                                 self._config.getint('general','mtu'),  #10
+                                                                 self._config.getint('general','mcast_ttl')    #11
+                                                                 ))
                         p.start()
                         self._jobs.append(p)
                     except ConfigParser.NoSectionError:
