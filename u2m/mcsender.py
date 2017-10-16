@@ -32,6 +32,8 @@ class MCSender(threading.Thread):
 
         # Fetch
         self._fetchtimer = None
+        self._fetchperiod = self._period
+        self._fetchstatus = 0
 
         # Tokenbank
         self._tokentimer = None
@@ -54,15 +56,11 @@ class MCSender(threading.Thread):
         self._rtp_pkt = rtpext.RTPMABRDATA()
         self._rtp_pkt.version = 2
         self._rtp_pkt.p=0
-        self._rtp_pkt.x=1
         self._rtp_pkt.cc=0x0
-        self._rtp_pkt.m=0
         self._rtp_pkt.pt=96
         self._rtp_pkt.seq = random.randint(0,65535)     #start with random RTP sequence number
         self._rtp_pkt.ts=0x00
         self._rtp_pkt.ssrc=self._ssrc
-
-        self._hurry=0
 
 
     def _tokencallback(self, period, fireat_wc):
@@ -83,51 +81,80 @@ class MCSender(threading.Thread):
 
 
     def _fetchcallback(self, fireat_wc):
-        message = ""
 
         try:
-            # 0. Set next timer and compensate drift from wc(wallclock)
-            drift = time.time() - fireat_wc
+            # we are BEHIND: we are too late (or exactly on time), the fragment present on the origin. Probably we can acquire them faster.
+            # we are AHEAD: we are too early, the fragment have not published yet on the origin (hopefully, and we do not encounter a server error)
 
-            # 1. Load segment
-            url = string.replace(self._urltemplate, "$Number$", str(self._number))     #keep in mind, that ffmpeg default setting is not compatible: %05d stuff...
+            # 0. Set next timer
+            # compensate drift from wc (wallclock)
+            drift = fireat_wc - time.time()
 
-            retcode=404
-            while(retcode == 404):
-                message = "Accessing segment '%s':" % url
+            # converge to origin's publication time (_fetchstatus > 0 --> we are behind, _fetchstatus < 0 --> we are ahead)
+            self._fetchperiod -= (self._fetchstatus * 0.001)
 
-                try:
-                    ret = self._opener.open(url)
-                    retcode = ret.getcode()
-
-                    #we were on time, let's hurry a bit more next time
-                    self._hurry += (0 if self._hurry > self._period*0.2 else 0.01)
-                except urllib2.HTTPError as e:
-                    if e.code == 404:
-                        #we were (hopefully) too early, lets slow down a bit
-                        #self._period += (0.01*5)
-                        message += " HTTP %s (%s)" % (e.code, e.reason)
-                        self._logger.debug(message)
-                        time.sleep(0.01)
-                        self._hurry = -0.1
-                    else:
-                        raise e
-
-            self._fetchtimer = threading.Timer(self._period - drift, MCSender._fetchcallback, [self, fireat_wc + self._period - self._hurry])
+            # set timer
+            self._fetchtimer = threading.Timer(self._fetchperiod + drift, MCSender._fetchcallback, [self, fireat_wc + self._fetchperiod])
             self._fetchtimer.start()
 
 
-            message += " HTTP %s (%s byte" % (ret.getcode(),ret.headers['content-length'])
+            # 1. Load segment
+            url = string.replace(self._urltemplate, "$Number$", str(self._number))     #keep in mind, that ffmpeg default setting is not compatible: %05d stuff...
+            message = "Accessing segment '%s': " % url
+
+            # repeate until fragment does present on origin or origin error (!=404), limit by two fragment time
+            retcode=404
+            WAITAFTER404 = 0.100
+            MAXATTEMPT = int(self._period / WAITAFTER404 * 2)
+            attempt=0
+            while(retcode == 404):
+                try:
+                    attempt += 1
+                    ret = self._opener.open(url)
+                    retcode = ret.getcode()
+                except urllib2.HTTPError as e:
+                    # exit criteria
+                    if attempt == MAXATTEMPT:
+                        message += "HTTP %s (reason: %s, attempts: %d, giving up!)" % (e.code, e.reason, attempt)
+                        self._logger.warning(message)
+                        return
+
+                    # we are ahead (hopefully), wait a bit...
+                    if e.code == 404:
+                        time.sleep(WAITAFTER404)
+
+                    retcode = e.code
+
+
+            if attempt == 1:
+                if self._fetchstatus < 0:
+                    # we are exactly on time, first 200 after a series of 404, reset _fetchperiod, and start slowly decreasing it
+                    self._fetchstatus = 1
+                    self._fetchperiod = self._period
+                else:
+                    # we were behind, let's hurry up a bit
+                    self._fetchstatus += 1
+            else:
+
+                if self._fetchstatus > 0:
+                    # we are exactly on time, first 404 after a series of 200, reset _fetchperiod, and start slowly increasing it
+                    self._fetchstatus = -1
+                    self._fetchperiod = self._period
+                else:
+                    # we were ahead, let's slow down a bit:
+                    self._fetchstatus -= 1
+
+            message += "HTTP %s (length: %8dB, attempts: %2d" % (ret.getcode(),int(ret.headers['content-length']), attempt)
+
 
             # 2. send it out in parts
-            representationid_padded = self._representationid + ("\0" * ((4 - len(self._representationid) % 4) % 4))
-                        #ADSL   IP  UDP RTP RTPe    RTPeh
-            readsize = self._mtu  -4      -20 -8  -12 -4      -6*4
+                                  #IP  UDP RTP+RTPe+RTPeh
+            readsize = self._mtu  -20 -8  -rtpext.RTPMABRDATA.__hdr_len__
             readpos = 0
             numberofsentpackets = 0
 
-            buff=ret.read(readsize)
-            chunk=buff
+            buff=ret.read(readsize) # slice of a fragment
+            chunk=buff              # the whole fragment (for checksum calculation)
             self._rtp_pkt.m = 0
             self._rtp_pkt.ts = self._calctimestamp(90000)
 
@@ -146,34 +173,33 @@ class MCSender(threading.Thread):
                 buff = ret.read(readsize)
                 chunk += buff
                 if buff != "":
-                    # Put it into the jonbuffer
+                    # put it into the jobbuffer for timed sendout (avoid RTP bursts)
                     self._jobbuffer.append(str(self._rtp_pkt))
                 else:
                     # Last packet, set marker
                     rtp_pkt_stitcher = rtpext.RTPMABRSTITCHER(self._rtp_pkt)
-                    rtp_pkt_stitcher.m = 1
+                    rtp_pkt_stitcher.m = 1                                          #TODO: use RTP extension header ids to identify packet types, marker should be just informationan only
                     rtp_pkt_stitcher.burstseqfirst = burstseqfirst
                     rtp_pkt_stitcher.burstseqlast = rtp_pkt_stitcher.seq
                     rtp_pkt_stitcher.chunknumber = self._number
                     rtp_pkt_stitcher.updateChecksum(chunk)
-                    message += ", %s checksum" % rtpext.RTPMABRSTITCHER.checksum2str(rtp_pkt_stitcher.checksum)
+                    message += ", checksum: %s" % rtpext.RTPMABRSTITCHER.checksum2str(rtp_pkt_stitcher.checksum)
 
+                    # put it into the jobbuffer
                     self._jobbuffer.append(str(rtp_pkt_stitcher))
 
+                # Send them out
                 self._jobsem.release()
-
 
                 # Update sequence number
                 numberofsentpackets += 1
                 self._rtp_pkt.seq = (self._rtp_pkt.seq + 1) % 65536
 
-            message += ", %d packets, period: %.03f)" % (numberofsentpackets, self._period - self._hurry)
-
+            message += ", packets: %4d, period: %.03f)" % (numberofsentpackets, self._fetchperiod)
             self._logger.debug(message)
 
-        except urllib2.HTTPError as e:
-            message += " HTTP %s (%s)" % (e.code, e.reason)
-            self._logger.warning(message)
+        except Exception as e:
+            self._logger.warning(e.message)
 
         self._number += 1
 
@@ -183,7 +209,7 @@ class MCSender(threading.Thread):
         self._timeoffset_ut = time.time()
 
         # Start fetching segments
-        self._fetchcallback(time.time())
+        self._fetchcallback(time.time()+self._period)
 
         # Start adding tokens, set the bitrate limit here by calculating how frequently a packet can leave
         self._tokencallback(self._mtu * 8.0 / self._bandwidthcap / 1.1, time.time())
