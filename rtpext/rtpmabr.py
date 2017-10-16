@@ -14,6 +14,9 @@ class RTPEXT(RTP):
         ('id', 'H', 0x0000),    # RTP extension header identifier
         ('length', 'H', 0),     # RTP extension header length, fix value, to be updated, if header changes!
     )
+    def __init__(self):
+        super(RTPEXT, self).__init__()
+        self.x=1
 
     def unpack(self, buf):
         super(RTPEXT, self).unpack(buf)
