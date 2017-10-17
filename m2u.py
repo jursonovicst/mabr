@@ -13,7 +13,6 @@ parser = argparse.ArgumentParser(description='...')
 parser.add_argument('--log', help='log file, use - for stdout [default: %(default)s]', default="-")
 parser.add_argument('--severity', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
                     help='Log severity [default: %(default)s]', default="INFO")
-parser.add_argument('--memcached', help='memcache to use, provide IP:PORT or UNIX socket path [default: %(default)s]', default="127.0.0.1:11211")
 parser.add_argument('--proxy', help='HTTP proxy for stream ingest', default="")
 parser.add_argument('--bind', help='bind HTTP server [default: %(default)s]', default="0.0.0.0")
 parser.add_argument('--bindmulticast', help='bind multicast to an interface [default: %(default)s]', default=socket.gethostbyname_ex(socket.gethostname())[2][0])
@@ -32,7 +31,7 @@ if __name__ == '__main__':
     dashproxy = None
     try:
         logging.info("Starting...")
-        dashproxy = m2u.DASHProxy(logging.getLogger("DASHProxy"), args.bind, args.port, args.CONFIG, args.proxy, args.bindmulticast, args.memcached)
+        dashproxy = m2u.DASHProxy(logging.getLogger("DASHProxy"), args.bind, args.port, args.CONFIG, args.proxy, args.bindmulticast)
 
         #this will block
         dashproxy.serve_requests()
