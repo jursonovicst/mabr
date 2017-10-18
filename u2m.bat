@@ -1,1 +1,0 @@
-c:\Python27\python.exe C:\Users\A9423340\PycharmProjects\mabr\u2m.py --severity DEBUG --proxy http://10.35.3.35:3128 ch02.conf

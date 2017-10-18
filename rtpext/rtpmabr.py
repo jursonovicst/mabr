@@ -72,6 +72,7 @@ class RTPMABRSTITCHER(RTPMABRDATA):
             f.write("%04x" % i)
             for j in range(i, i+(16 if len(buff)-i >= 16 else len(buff)-i)):
                 f.write(" %s%02x" % (" " if j % 16 == 8 else "", ord(buff[j])))
+                f.write(" %s%02x" % (" " if j % 16 == 8 else "", ord(buff[j])))
             f.write("  ")
             for j in range(i, i+(16 if len(buff)-i >= 16 else len(buff)-i)):
                 f.write("%c" % buff[j] if ord(buff[j]) >= 32 and ord(buff[j]) < 127 else '.')
