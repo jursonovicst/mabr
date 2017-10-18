@@ -48,7 +48,7 @@ def makehandlerclass(logger, ingestproxy, mcip, memdb):
             host = re.sub(':\d+$', '', self.headers['Host'])
 
             # check if FQDN matches with channel configured
-            if not Channel.validateFQDN(host):
+            if not Channel.validatefqdn(host):
                 self.send_response(401)
                 self.wfile.write("FQDN '%s' not configured to proxy." % host)
                 self._logger.warning("FQDN '%s' not configured to proxy." % host)
@@ -57,7 +57,7 @@ def makehandlerclass(logger, ingestproxy, mcip, memdb):
             requesturl = 'http://' + host + self.path
             try:
                 # find channel (if any)
-                channel = Channel.getChannelByMPDURL(host, self.path)
+                channel = Channel.getchannelbympdurl(host, self.path)
                 if channel is not None:
                     ######################
                     # mpd                #
@@ -67,14 +67,14 @@ def makehandlerclass(logger, ingestproxy, mcip, memdb):
                     self._logger.info("parse mpd: '%s'" % requesturl)
 
                     # Parse mpd
-                    mpd = self.passthrough(channel.getMPDIngestUrl())
+                    mpd = self.passthrough(channel.getmpdingesturl())
                     mpdparser = dash.MPDParser(mpd)
 
                     # parse url templates for multicast
                     for template, representationid in mpdparser.getMediaPatterns():
                         mediapattern = os.path.dirname(self.path) + '/' + template
 
-                        channel.findStream(representationid).setMediaPattern(mediapattern)
+                        channel.findstream(representationid).setmediapattern(mediapattern)
                         self._logger.debug("Set '%s' pattern for multicast delivery." % mediapattern)
                         self._logger.debug("Set '%s' pattern for multicast delivery." % mediapattern)
 
@@ -82,16 +82,16 @@ def makehandlerclass(logger, ingestproxy, mcip, memdb):
                     for template, representationid in mpdparser.getInitializationPatterns():
                         initializationpattern = os.path.dirname(self.path) + '/' + template
 
-                        channel.findStream(representationid).setInitializationPattern(initializationpattern)
+                        channel.findstream(representationid).setinitializationpattern(initializationpattern)
                         self._logger.debug("Set '%s' pattern for passthrough." % initializationpattern)
 
                     # parse mime-types
                     for mimetype, representationid in mpdparser.getMimeTypes():
-                        channel.findStream(representationid).setMimeType(mimetype)
+                        channel.findstream(representationid).setmimetype(mimetype)
 
                     # Start multicast receivers, if not already running
-                    for stream in channel.getStreams():
-                        mcast_grp, mcast_port, ssrc = stream.getMCParam()
+                    for stream in channel.getstreams():
+                        mcast_grp, mcast_port, ssrc = stream.getmcparam()
                         receiverid = mcast_grp + ':' + str(mcast_port)
                         if receiverid not in CustomHandler._receiverjobs or not CustomHandler._receiverjobs[receiverid].is_alive():
                             p = Receiver(name="receiver-%s" % receiverid, args=(self._logger.getChild("Receiver"), self._mcip, self._memdb, stream))
@@ -106,15 +106,15 @@ def makehandlerclass(logger, ingestproxy, mcip, memdb):
                     ######################
 
                     # check, if the whole fragment is in memdb (-->stitching was successful)
-                    chunk = self._memdb.get(Chunk.getmemcachedkey(stream.getSSRC(), stream.getChunknumberFromPath(self.path)))
+                    chunk = self._memdb.get(Chunk.getmemcachedkey(stream.getssrc(), stream.getchunknumberfrompath(self.path)))
 
                     if chunk is None:
                         self._logger.warning("cache miss: '%s'" % requesturl)
-                        self.passthrough(channel.getIngestUrl(self.path))
+                        self.passthrough(channel.getingesturl(self.path))
                     else:
                         self._logger.debug("cache hit : '%s', len: %d " % (requesturl, len(chunk)))
                         self.send_response(200)
-                        self.send_header('Content-Type', stream.getMimeType())
+                        self.send_header('Content-Type', stream.getmimetype())
                         self.send_header('Content-Length', str(len(chunk)))
 
                         # fucking CORS
@@ -127,14 +127,14 @@ def makehandlerclass(logger, ingestproxy, mcip, memdb):
                         self.wfile.write(chunk)
                     return
 
-                channel = Channel.getChannelByInitSegmentURL(host, self.path)
+                channel = Channel.getchannelbyinitsegmenturl(host, self.path)
                 if channel is not None:
                     ######################
                     # initialization     #
                     ######################
 
                     self._logger.debug("cache pass: '%s'" % requesturl)
-                    self.passthrough(channel.getIngestUrl(self.path))
+                    self.passthrough(channel.getingesturl(self.path))
                     return
 
                 ######################

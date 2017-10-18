@@ -10,16 +10,17 @@ import struct
 import math
 import re
 
+
 class MCSender(threading.Thread):
 
-    _timeout = 1
+    timeout = 1
 
     def __init__(self, group=None, target=None, name=None, args=(), kwarggs=None):
         threading.Thread.__init__(self, group, target, name, args, kwarggs)
         self._mcast_grp = args[0]
         self._mcast_port = int(args[1])
         self._ssrc = int(args[2])
-        self._urltemplate = string.replace(args[3],"$RepresentationID$",args[4])
+        self._urltemplate = string.replace(args[3], "$RepresentationID$", args[4])
         self._representationid = args[4]
         self._number = int(args[5])
         self._period = float(args[6])
@@ -27,8 +28,8 @@ class MCSender(threading.Thread):
         self._opener = urllib2.build_opener(proxy_handler)
         self._logger = args[8]
         self._bandwidthcap = float(args[9])
-        self._mtu=int(args[10])
-        self._mcast_ttl=int(args[11])
+        self._mtu = int(args[10])
+        self._mcast_ttl = int(args[11])
 
         # Fetch
         self._fetchtimer = None
@@ -47,7 +48,7 @@ class MCSender(threading.Thread):
         self._run = False
         self._timeoffset_ut = None
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, self._mcast_ttl)   #by default, TTL for multicast is 1, increase this value to send to other networks.
+        self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, self._mcast_ttl)   # by default, TTL for multicast is 1, increase this value to send to other networks.
         self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1)
 
 
@@ -55,12 +56,12 @@ class MCSender(threading.Thread):
         random.seed(os.urandom(1))
         self._rtp_pkt = rtpext.RTPMABRDATA()
         self._rtp_pkt.version = 2
-        self._rtp_pkt.p=0
-        self._rtp_pkt.cc=0x0
-        self._rtp_pkt.pt=96
-        self._rtp_pkt.seq = random.randint(0,65535)     #start with random RTP sequence number
-        self._rtp_pkt.ts=0x00
-        self._rtp_pkt.ssrc=self._ssrc
+        self._rtp_pkt.p = 0
+        self._rtp_pkt.cc = 0x0
+        self._rtp_pkt.pt = 96
+        self._rtp_pkt.seq = random.randint(0, 65535)     # start with random RTP sequence number
+        self._rtp_pkt.ts = 0x00
+        self._rtp_pkt.ssrc = self._ssrc
 
 
     def _tokencallback(self, period, fireat_wc):
@@ -76,7 +77,7 @@ class MCSender(threading.Thread):
             pass    # Ignore tokens over bucketsize
 
 
-    def _calctimestamp(self,resolution):
+    def _calctimestamp(self, resolution):
         return int((time.time()-self._timeoffset_ut) * resolution)
 
 
@@ -99,14 +100,14 @@ class MCSender(threading.Thread):
 
 
             # 1. Load segment
-            url = string.replace(self._urltemplate, "$Number$", str(self._number))     #keep in mind, that ffmpeg default setting is not compatible: %05d stuff...
+            url = string.replace(self._urltemplate, "$Number$", str(self._number))     # keep in mind, that ffmpeg default setting is not compatible: %05d stuff...
             message = "Accessing segment '%s': " % url
 
             # repeate until fragment does present on origin or origin error (!=404), limit by two fragment time
-            retcode=404
+            retcode = 404
             WAITAFTER404 = 0.100
             MAXATTEMPT = int(self._period / WAITAFTER404 * 2)
-            attempt=0
+            attempt = 0
             while(retcode == 404):
                 try:
                     attempt += 1
@@ -144,12 +145,12 @@ class MCSender(threading.Thread):
                     # we were ahead, let's slow down a bit:
                     self._fetchstatus -= 1
 
-            message += "HTTP %s (length: %8dB, attempts: %2d" % (ret.getcode(),int(ret.headers['content-length']), attempt)
+            message += "HTTP %s (length: %8dB, attempts: %2d" % (ret.getcode(), int(ret.headers['content-length']), attempt)
 
 
             # 2. send it out in parts
-                                  #IP  UDP RTP+RTPe+RTPeh
-            readsize = self._mtu  -20 -8  -rtpext.RTPMABRDATA.__hdr_len__
+                                # IP  UDP RTP+RTPe+RTPeh
+            readsize = self._mtu -20 -8  -rtpext.RTPMABRDATA.__hdr_len__
             readpos = 0
             numberofsentpackets = 0
 
@@ -178,7 +179,7 @@ class MCSender(threading.Thread):
                 else:
                     # Last packet, set marker
                     rtp_pkt_stitcher = rtpext.RTPMABRSTITCHER(self._rtp_pkt)
-                    rtp_pkt_stitcher.m = 1                                          #TODO: use RTP extension header ids to identify packet types, marker should be just informationan only
+                    rtp_pkt_stitcher.m = 1                                          # TODO: use RTP extension header ids to identify packet types, marker should be just informationan only
                     rtp_pkt_stitcher.burstseqfirst = burstseqfirst
                     rtp_pkt_stitcher.burstseqlast = rtp_pkt_stitcher.seq
                     rtp_pkt_stitcher.chunknumber = self._number

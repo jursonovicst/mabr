@@ -19,7 +19,7 @@ parser.add_argument('CONFIG', type=argparse.FileType('r'), nargs='+', help='Conf
 args = parser.parse_args()
 
 if args.log != "-":
-  logging.basicConfig(filename=args.log)
+    logging.basicConfig(filename=args.log)
 logging.basicConfig(level=getattr(logging, args.severity.upper(), None))
 
 
@@ -30,7 +30,7 @@ if __name__ == '__main__':
         logging.info("Starting...")
         dashproxy = m2u.DASHProxy(logging.getLogger("DASHProxy"), args.bind, args.port, args.CONFIG, args.proxy, args.bindmulticast)
 
-        #this will block
+        # this will block
         dashproxy.serve_requests()
 
     except KeyboardInterrupt:

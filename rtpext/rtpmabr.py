@@ -3,7 +3,7 @@ import sys
 
 import imp
 try:
-  imp.find_module('dpkt')
+    imp.find_module('dpkt')
 except ImportError:
     raise Exception("This scrypt requires dpkt.rtp python library, please install python-dpkt!")
 from dpkt.rtp import RTP
@@ -15,9 +15,10 @@ class RTPEXT(RTP):
         ('id', 'H', 0x0000),    # RTP extension header identifier
         ('length', 'H', 0),     # RTP extension header length, fix value, to be updated, if header changes!
     )
+
     def __init__(self):
         super(RTPEXT, self).__init__()
-        self.x=1
+        self.x = 1
 
     def unpack(self, buf):
         super(RTPEXT, self).unpack(buf)
@@ -41,7 +42,7 @@ class RTPMABRDATA(RTPEXT):
 
     def unpack(self, buf):
         super(RTPMABRDATA, self).unpack(buf)
-        if self.id !=  RTPMABRDATA.ID:
+        if self.id != RTPMABRDATA.ID:
             raise Exception("Invalid RTPMABRDATA header format, ID: %04x is unknown" % self.id)
 
 
@@ -67,13 +68,13 @@ class RTPMABRSTITCHER(RTPMABRDATA):
         else:
             f = open(filename, 'w')
 
-        for i in range(0,len(buff),16):
+        for i in range(0, len(buff), 16):
             f.write("%04x" % i)
-            for j in range(i, i+(16 if len(buff)-i >= 16 else len(buff)-i) ):
-                f.write(" %s%02x" % (" " if j%16==8 else "", ord(buff[j])))
+            for j in range(i, i+(16 if len(buff)-i >= 16 else len(buff)-i)):
+                f.write(" %s%02x" % (" " if j % 16 == 8 else "", ord(buff[j])))
             f.write("  ")
-            for j in range(i, i+(16 if len(buff)-i >= 16 else len(buff)-i) ):
-                f.write("%c" % buff[j] if ord(buff[j]) >=32 and ord(buff[j]) <127 else '.')
+            for j in range(i, i+(16 if len(buff)-i >= 16 else len(buff)-i)):
+                f.write("%c" % buff[j] if ord(buff[j]) >= 32 and ord(buff[j]) < 127 else '.')
             f.write("\n")
 
         if filename is not None:
@@ -109,5 +110,5 @@ class RTPMABRSTITCHER(RTPMABRDATA):
 
     def unpack(self, buf):
         super(RTPMABRDATA, self).unpack(buf)
-        if self.id !=  RTPMABRSTITCHER.ID:
+        if self.id != RTPMABRSTITCHER.ID:
             raise Exception("Invalid RTPMABRSTITCHER packet format, ID: %04x is unknown" % self.id)

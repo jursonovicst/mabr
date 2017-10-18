@@ -3,19 +3,12 @@ import ConfigParser
 import re
 from mcsender import *
 
+
 class MPDParser:
 
-    def __init__(self, proxy, logger, configfp):
-        self._proxy = proxy
-        proxy_handler = urllib2.ProxyHandler({'http': self._proxy} if self._proxy != "" else {})
-        self._opener = urllib2.build_opener(proxy_handler)
-        self._logger = logger
-        self._config = ConfigParser.ConfigParser()
-        self._config.readfp(configfp)
-        self._jobs = []
-
+    @staticmethod
     def _str2unixtime(self, timestr):
-        if timestr == None or timestr == "":
+        if timestr is None or timestr == "":
             return 0
 
         # time is stored always in localtime
@@ -26,7 +19,7 @@ class MPDParser:
                 return time.mktime(time.strptime(timestr, "%Y-%m-%dT%H:%M:%SZ"))
             except ValueError:
                 try:
-                    return time.mktime(time.strptime(timestr, "%Y-%m-%dT%H:%M:%S")) - time.altzone #This is in UTC, convert to localtime + do not forget DST!!!
+                    return time.mktime(time.strptime(timestr, "%Y-%m-%dT%H:%M:%S")) - time.altzone      # This is in UTC, convert to localtime + do not forget DST!!!
                 except ValueError:
                     try:
                         match = re.search("PT(\d+(\.\d+)*)S", timestr)
@@ -34,10 +27,17 @@ class MPDParser:
                     except:
                         raise Exception("No matching timeformat for %s" % timestr)
 
-    def _calculateLastNumber(self, timescale, duration, startNumber, availabilityStartTime, presentationTimeOffset=0, suggestedPresentationDelay=0):
 
-        #offset_tick = (time.time() + time.timezone - self._str2unixtime(availabilityStartTime) - self._str2unixtime(suggestedPresentationDelay)) * int(timescale)
-        #return offset_tick / int(duration) + int(startNumber) - 1
+    def __init__(self, proxy, logger, configfp):
+        self._proxy = proxy
+        proxy_handler = urllib2.ProxyHandler({'http': self._proxy} if self._proxy != "" else {})
+        self._opener = urllib2.build_opener(proxy_handler)
+        self._logger = logger
+        self._config = ConfigParser.ConfigParser()
+        self._config.readfp(configfp)
+        self._jobs = []
+
+    def _calculateLastNumber(self, timescale, duration, startNumber, availabilityStartTime, presentationTimeOffset=0, suggestedPresentationDelay=0):
         return self._calculateNumber(time.time(), timescale, duration, startNumber, availabilityStartTime, presentationTimeOffset, suggestedPresentationDelay)
 
     def _calculateNumber(self, at, timescale, duration, startNumber, availabilityStartTime, presentationTimeOffset=0, suggestedPresentationDelay=0):
@@ -53,26 +53,25 @@ class MPDParser:
 
     def fetch(self):
         # get mpd
-        mpdurl = 'http://' + self._config.get('general','ingestfqdn') + self._config.get('general','mpdpath')
+        mpdurl = 'http://' + self._config.get('general', 'ingestfqdn') + self._config.get('general', 'mpdpath')
         self._logger.debug("Open manifest file '%s'" % mpdurl)
         ret = self._opener.open(mpdurl)
         mpd = ret.read()
         self._opener.close()
 
-        #parse mpd
+        # parse mpd
         mpdroot = ET.fromstring(mpd)
-        #print xml.dom.minidom.parseString(ET.tostring(self.mpdroot, 'utf-8')).toprettyxml(indent="  ")
 
-        #check xml #TODO: use xslt...
+        #check xml      # TODO: use xslt...
         if 'profiles' not in mpdroot.attrib:
             raise Exception("invalid mpd, no profile")
         self._logger.debug("MPD %s found" % mpdroot.attrib['profiles'])
 
-        if 'type' not in mpdroot.attrib or mpdroot.attrib['type']!="dynamic":
+        if 'type' not in mpdroot.attrib or mpdroot.attrib['type'] != "dynamic":
             raise Exception("Non dynamic MPD")
         self._logger.debug("Dynamic mpd found")
 
-        #find repres
+        # find repres
         ns = {'ns': 'urn:mpeg:dash:schema:mpd:2011'}
         for period in mpdroot.findall('.//ns:Period', ns):
             self._logger.debug("Period '%s' found" % (period.attrib['id'] if 'id' in period.attrib else "--"))
@@ -83,7 +82,7 @@ class MPDParser:
                 segmenttemplate = adaptationset.find('.//ns:SegmentTemplate', ns)
                 self._logger.debug("SegmentTemplate (media=%s) found" % (segmenttemplate.attrib['media'] if 'media' in segmenttemplate.attrib else "--"))
                 for representation in adaptationset.findall('.//ns:Representation', ns):
-                    self._logger.debug("Representation '%s' found (bitrate: %.2fMbps)" % (representation.attrib['id'],float(representation.attrib['bandwidth'])/1000/1000))
+                    self._logger.debug("Representation '%s' found (bitrate: %.2fMbps)" % (representation.attrib['id'], float(representation.attrib['bandwidth'])/1000/1000))
 
                     try:
                         mcast_grp = self._config.get(representation.attrib['id'], 'mcast_grp')
@@ -94,14 +93,14 @@ class MPDParser:
                                                                  int(mcast_port),    # 1
                                                                  int(ssrc),          # 2
                                                                  urltemplate,        # 3
-                                                                 representation.attrib['id'],    #4
+                                                                 representation.attrib['id'],    # 4
                                                                  self._calculateLastNumber(segmenttemplate.attrib['timescale'], segmenttemplate.attrib['duration'], segmenttemplate.attrib['startNumber'], mpdroot.attrib['availabilityStartTime'], mpdroot.attrib['presentationTimeOffset'] if 'presentationTimeOffset' in mpdroot.attrib else 0, mpdroot.attrib['suggestedPresentationDelay'] if 'suggestedPresentationDelay' in mpdroot.attrib else 0),
                                                                  int(segmenttemplate.attrib['duration'])/int(segmenttemplate.attrib['timescale']),
                                                                  self._proxy,        # 7
                                                                  self._logger.getChild('MCSender-%d' % ssrc),       # 8
-                                                                 int(representation.attrib['bandwidth'])*float(self._config.get('general','bwfactor')),  #9
-                                                                 self._config.getint('general','mtu'),  #10
-                                                                 self._config.getint('general','mcast_ttl')    #11
+                                                                 int(representation.attrib['bandwidth'])*float(self._config.get('general', 'bwfactor')),  # 9
+                                                                 self._config.getint('general', 'mtu'),  # 10
+                                                                 self._config.getint('general', 'mcast_ttl')    # 11
                                                                  ))
                         p.start()
                         self._jobs.append(p)
@@ -110,7 +109,7 @@ class MPDParser:
 
 
     def join(self):
-        while any(p.join(MCSender._timeout) == None and p.isAlive for p in self._jobs):
+        while any(p.join(MCSender.timeout) is None and p.isAlive for p in self._jobs):
             pass
 
 
@@ -118,7 +117,7 @@ class MPDParser:
         for p in self._jobs:
             if p.isAlive():
                 p.stop()
-                p.join(MCSender._timeout)
+                p.join(MCSender.timeout)
 
 
 

@@ -20,7 +20,6 @@ if args.log != "-":
 logging.basicConfig(level=getattr(logging, args.severity.upper(), None))
 
 
-
 if __name__ == '__main__':
 
     mpd = None

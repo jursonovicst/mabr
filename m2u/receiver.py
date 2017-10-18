@@ -23,7 +23,7 @@ class Receiver(threading.Thread):
         self._mcip = args[1]
         self._memdb = args[2]
         self._stream = args[3]
-        self._mcast_grp, self._mcast_port, self._ssrc = self._stream.getMCParam()
+        self._mcast_grp, self._mcast_port, self._ssrc = self._stream.getmcparam()
 
         self._run = False
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
