@@ -1,20 +1,17 @@
+from channels import *
+from rtpext import *
+from stitcher import Stitcher
+
 import threading
 import socket
-import struct
-import Queue
-import rtpext
-from stitcher import *
-from dpkt.rtp import RTP
-from rtpext import *
-import sys, traceback
-from channels import *
+import traceback
 
 import imp
 try:
-    imp.find_module('memcache')
+    imp.find_module('dpkt')
 except ImportError:
-    raise Exception("This script requires memcache python library, please install python-memcache!")
-import memcache
+    raise Exception("This script requires dpkt.rtp library, please install python-dpkt!")
+from dpkt.rtp import RTP
 
 
 class Receiver(threading.Thread):
@@ -24,7 +21,7 @@ class Receiver(threading.Thread):
 
         self._logger = args[0]
         self._mcip = args[1]
-        self._memcached = memcache.Client([args[2]])
+        self._memdb = args[2]
         self._stream = args[3]
         self._mcast_grp, self._mcast_port, self._ssrc = self._stream.getMCParam()
 
@@ -40,7 +37,7 @@ class Receiver(threading.Thread):
         self._run = True
 
         # joining MC group
-        self._sock.bind(('', self._mcast_port))   #may causes issues in windows
+        self._sock.bind(('', self._mcast_port))   # may causes issues in windows
         self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, socket.inet_aton(self._mcast_grp) + socket.inet_aton(self._mcip))
 
 #        self._sock.setsockopt(socket.SOL_IP, socket.IP_MULTICAST_IF, socket.INADDR_ANY if self._mcip == '0.0.0.0' else socket.inet_aton(self._mcip))
@@ -48,7 +45,6 @@ class Receiver(threading.Thread):
 
         self._logger.debug("Receiver thread started for %s:%d (ssrc: %d) on %s" % (self._mcast_grp, self._mcast_port, self._ssrc, self._mcip))
 
-        laststitchedchunk=None
         while self._run:
             try:
                 data, addr = self._sock.recvfrom(1500)
@@ -57,22 +53,22 @@ class Receiver(threading.Thread):
 
                 # drop inproper packages
                 if rtp_pkt.version != 2:
-                    self._logger.warning('invalid RTP format' )
+                    self._logger.warning('invalid RTP format')
                     continue
 
                 if int(rtp_pkt.ssrc) != self._ssrc:
-                    self._logger.warning('Foregin RTP stream (ssrc=%d, but expecting %d)' % (int(rtp_pkt.ssrc),self._ssrc))     #TODO: implement received from...
+                    self._logger.warning('Foregin RTP stream (ssrc=%d, but expecting %d)' % (int(rtp_pkt.ssrc), self._ssrc))     # TODO: implement received from...
                     continue
 
                 if rtp_pkt.x == 1:
-                    rtp_pkt=RTPEXT()
+                    rtp_pkt = RTPEXT()
                     rtp_pkt.unpack(data)
 
                     if rtp_pkt.id == RTPMABRDATA.ID:
                         rtp_pkt = RTPMABRDATA()
                         rtp_pkt.unpack(data)
                     elif rtp_pkt.id == RTPMABRSTITCHER.ID:
-                        rtp_pkt=RTPMABRSTITCHER()
+                        rtp_pkt = RTPMABRSTITCHER()
                         rtp_pkt.unpack(data)
                     else:
                         self._logger.warning('Non MABR RTP packet (id=%02x)' % rtp_pkt.id)
@@ -82,18 +78,14 @@ class Receiver(threading.Thread):
                     continue
 
                 # store data
-                if not self._memcached.set(Slice.getmemcachedkey(rtp_pkt.ssrc, rtp_pkt.seq), rtp_pkt.data):
-                    self._logger.warning('Cannot store RTP packet: ssrc=%s, seq=%d' % (rtp_pkt.ssrc, rtp_pkt.seq))
+                if not self._memdb.set(Slice.getmemcachedkey(rtp_pkt.ssrc, rtp_pkt.seq), rtp_pkt.data):
+                    self._logger.warning('ssrc: %s, seq: %d, cannot store RTP packet ' % (rtp_pkt.ssrc, rtp_pkt.seq))
 #                else:
 #                    self._logger.debug('RTP packet stored: ssrc=%s, seq=%d' % (rtp_pkt.ssrc, rtp_pkt.seq))
 
-
-
-
                 # trigger stitcher
-                if rtp_pkt.m == 1:
+                if rtp_pkt.id == RTPMABRSTITCHER.ID:
                     Stitcher.stitch(rtp_pkt.ssrc, rtp_pkt.burstseqfirst, rtp_pkt.burstseqlast, rtp_pkt.chunknumber, rtp_pkt.checksum, self._logger)
-
 
             except socket.timeout:
                 pass
@@ -108,9 +100,3 @@ class Receiver(threading.Thread):
         # leaving MC group
         host = socket.gethostbyname(socket.gethostname())
         self._sock.setsockopt(socket.SOL_IP, socket.IP_DROP_MEMBERSHIP, socket.inet_aton(self._mcast_grp) + socket.inet_aton(host))
-
-    def stitch(self,firstseq, lastseq):
-
-        #delete_multi
-        #get_multi
-        pass
