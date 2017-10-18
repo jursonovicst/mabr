@@ -2,11 +2,8 @@ import m2u
 
 import logging
 import argparse
-import time
 import socket
-
-import sys, traceback
-
+import traceback
 
 
 parser = argparse.ArgumentParser(description='...')
@@ -36,7 +33,6 @@ if __name__ == '__main__':
         #this will block
         dashproxy.serve_requests()
 
-
     except KeyboardInterrupt:
         logging.info("received interrupt signal...")
     except Exception as e:
@@ -44,4 +40,3 @@ if __name__ == '__main__':
         logging.debug(traceback.format_exc())
 
     dashproxy.stop()
-
