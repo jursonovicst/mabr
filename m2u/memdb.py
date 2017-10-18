@@ -2,7 +2,6 @@ from threading import Lock, ThreadError
 
 
 class MemDB:
-
     _db = {}
 
     def __init__(self):
@@ -14,7 +13,7 @@ class MemDB:
             self._db[key] = value
             self._lock.release()
             return True
-        except ThreadError:     # catch MemDB related exceptions and return False
+        except ThreadError:  # catch MemDB related exceptions and return False
             return False
 
         return False
@@ -26,7 +25,7 @@ class MemDB:
             if key in self._db:
                 ret = self._db[key]
             self._lock.release()
-        except ThreadError:     # if only release was wrong, return object
+        except ThreadError:  # if only release was wrong, return object
             return ret
 
         return ret
@@ -43,4 +42,3 @@ class MemDB:
             return ret
 
         return ret
-
