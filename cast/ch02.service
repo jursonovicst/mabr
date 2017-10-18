@@ -4,7 +4,7 @@ After = network.target
 
 
 [Service]
-Environment = INPUT=input/bbb_sunflower_1080p_30fps_normal.mp4 NAME=ch02 DST=output/ch02 RND=$RANDOM
+Environment = INPUT=input/bbb_sunflower_1080p_30fps_normal.mp4 NAME=ch02 DST=output/ch02
 
 WorkingDirectory = /home/cdn/mabr/cast
 ExecStartPre = /bin/mkdir -p $DST

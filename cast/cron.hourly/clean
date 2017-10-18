@@ -1,4 +1,0 @@
-#!/bin/sh
-
-
-/home/cdn/mabr/cast/clean.py --match "chunk-stream\d+-\d+.m4s" /home/cdn/mabr/cast/output/ch01/ /home/cdn/mabr/cast/output/ch02/
