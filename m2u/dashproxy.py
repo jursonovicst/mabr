@@ -1,5 +1,6 @@
 import threading
 from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
+from SimpleHTTPServer import SimpleHTTPRequestHandler
 import os
 import urllib2
 import dash
@@ -7,14 +8,8 @@ import Queue
 import traceback
 import sys
 import re
-
-
-import imp
-try:
-    imp.find_module('memcache')
-except ImportError:
-    raise Exception("This script requires memcache python library, please install python-memcache!")
-import memcache
+from rtpext import *
+from memdb import MemDB
 
 
 from receiver import Receiver
@@ -22,37 +17,36 @@ from stitcher import Stitcher
 from channels import *
 import time
 
-def MakeHandlerClass(logger, ingestproxy, mcip, memcachedaddress):
+def MakeHandlerClass(logger, ingestproxy, mcip, memdb):
     class CustomHandler(BaseHTTPRequestHandler, object):
 
         _urltemplates = []
-        _jobs = {}
+        _receiverjobs = {}              # holds receiver threads listening to multicast streams
 
         @staticmethod
         def stop():
-            for key in CustomHandler._jobs:
-                p = CustomHandler._jobs.pop(key)
+            # stop all receiver threads (and send multicast leave)
+            for key in CustomHandler._receiverjobs:
+                p = CustomHandler._receiverjobs.pop(key)
                 p.stop()
+
 
         def __init__(self, *args, **kwargs):
             self._logger = logger
             self._ingestproxy = None if ingestproxy == None or ingestproxy =="" else {'http': ingestproxy}
             self._mcip = mcip
-            self._memcachedaddress = memcachedaddress
-            self._memcached = memcache.Client([memcachedaddress], debug=0)
-
-            self._multicastdelivery = []
+            self._memdb = memdb
 
             super(CustomHandler, self).__init__(*args, **kwargs)
 
-        def do_GET(self):
 
+        def do_GET(self):
 
             # check Host header
             if 'Host' not in self.headers:
                 self.send_response(400)
                 self.wfile.write("No Host header specified.")
-                self._logger.warning("No Host header specified.")
+                self._logger.warning("No Host header specified in request.")
                 return
 
             # remove port from url if any
@@ -67,16 +61,15 @@ def MakeHandlerClass(logger, ingestproxy, mcip, memcachedaddress):
 
             requesturl = 'http://' + host + self.path
             try:
-
-                ######################
-                # mpd                #
-                ######################
-
                 # find channel (if any)
                 channel = Channel.getChannelByMPDURL(host, self.path)
                 if channel is not None:
+                    ######################
+                    # mpd                #
+                    ######################
+
                     # match on one channel
-                    self._logger.debug("parse mpd: '%s'" % requesturl)
+                    self._logger.info("parse mpd: '%s'" % requesturl)
 
                     # Parse mpd
                     mpd = self.passthrough(channel.getMPDIngestUrl())
@@ -87,137 +80,164 @@ def MakeHandlerClass(logger, ingestproxy, mcip, memcachedaddress):
                         mediapattern = os.path.dirname(self.path) + '/' + template
 
                         channel.findStream(representationid).setMediaPattern(mediapattern)
-                        self._logger.debug("Add '%s' pattern for multicast delivery." % mediapattern)
+                        self._logger.debug("Set '%s' pattern for multicast delivery." % mediapattern)
+                        self._logger.debug("Set '%s' pattern for multicast delivery." % mediapattern)
 
-                    # parse url templates for multicast
+                    # parse url templates for initsegment
                     for template, representationid in mpdparser.getInitializationPatterns():
                         initializationpattern = os.path.dirname(self.path) + '/' + template
 
                         channel.findStream(representationid).setInitializationPattern(initializationpattern)
-                        self._logger.debug("Add '%s' pattern for passthrough." % initializationpattern)
+                        self._logger.debug("Set '%s' pattern for passthrough." % initializationpattern)
 
+                    # parse mime-types
+                    for mimetype, representationid in mpdparser.getMimeTypes():
+                        channel.findStream(representationid).setMimeType(mimetype)
 
                     # Start multicast receivers, if not already running
                     for stream in channel.getStreams():
                         mcast_grp, mcast_port, ssrc = stream.getMCParam()
                         receiverid = mcast_grp + ':' + str(mcast_port)
-                        if receiverid not in CustomHandler._jobs or not CustomHandler._jobs[receiverid].is_alive():
-                            p = Receiver(name="receiver-%s" % receiverid, args=(self._logger.getChild("Receiver"), self._mcip, self._memcachedaddress, stream))
-                            CustomHandler._jobs[receiverid] = p
+                        if receiverid not in CustomHandler._receiverjobs or not CustomHandler._receiverjobs[receiverid].is_alive():
+                            p = Receiver(name="receiver-%s" % receiverid, args=(self._logger.getChild("Receiver"), self._mcip, self._memdb, stream))
+                            CustomHandler._receiverjobs[receiverid] = p
                             p.start()
-
                     return
 
-                ######################
-                # media              #
-                ######################
                 channel, stream = Channel.getChannelByURL(host, self.path)
                 if channel is not None and stream is not None:
-                    #check, if the whole fragment is in memcached
-                    chunk = self._memcached.get(Chunk.getmemcachedkey(stream.getSSRC(), stream.getChunknumberFromPath(self.path)))
+                    ######################
+                    # media              #
+                    ######################
 
-                    if not chunk:
+                    # check, if the whole fragment is in memdb (-->stitching was successful)
+                    chunk = self._memdb.get(Chunk.getmemcachedkey(stream.getSSRC(), stream.getChunknumberFromPath(self.path)))
+
+                    if chunk is None:
                         self._logger.warning("cache miss: '%s'" % requesturl)
                         self.passthrough(channel.getIngestUrl(self.path))
                     else:
-                        self._logger.debug("cache hit: '%s' " % requesturl)
-                        self.respond(chunk)
+                        self._logger.debug("cache hit : '%s', len: %d " % (requesturl, len(chunk)))
+                        self.send_response(200)
+                        self.send_header('Content-Type', stream.getMimeType())
+                        self.send_header('Content-Length', str(len(chunk)))
 
+                        # fucking CORS
+                        self.send_header('Access-Control-Allow-Origin', '*')
+                        self.send_header('Access-Control-Allow-Methods', 'GET,HEAD,OPTIONS')
+                        self.send_header('Access-Control-Expose-Headers', 'Server,range,Content-Length,Content-Range,Date')
+                        self.send_header('Access-Control-Allow-Headers', 'origin,range,accept-encoding,referer')
+
+                        self.end_headers()
+                        self.wfile.write(chunk)
                     return
 
-                ######################
-                # initialization     #
-                ######################
                 channel = Channel.getChannelByInitSegmentURL(host, self.path)
                 if channel is not None:
-                    self._logger.debug("cache passthg: '%s'" % requesturl)
-                    self.passthrough(channel.getIngestUrl(self.path))
+                    ######################
+                    # initialization     #
+                    ######################
 
+                    self._logger.debug("cache pass: '%s'" % requesturl)
+                    self.passthrough(channel.getIngestUrl(self.path))
                     return
 
-                # Deny
-                self.send_response(404)
-                self.wfile.write("Request %s os not part of an MPEG-DASH stream." % requesturl)
-                self._logger.warning("Request %s os not part of an MPEG-DASH stream." % requesturl)
+                ######################
+                # deny               #
+                ######################
+                self._logger.warning("Request %s is not part of an MPEG-DASH stream." % requesturl)
+                self.send_error(404, "Request %s is not part of an MPEG-DASH stream." % requesturl)
 
             except urllib2.HTTPError as e:
-                self.send_response(e.code)
-                self.wfile.write(e.message)
                 self._logger.debug(e.message)
+                self.send_error(e.code, e.message)
 
             except urllib2.URLError as e:
-                self.send_response(400)
-                self.wfile.write("%s could not be reached: %s" % (e.url, e.reason))
-                self._logger.debug("%s could not be reached: %s" % (e.url, e.reason))
+                self._logger.warning("%s could not be reached: %s" % (e.url, e.reason))
+                self.send_error(400, "%s could not be reached: %s" % (e.url, e.reason))
 
             except Exception as e:
-                self.send_response(500)
-                self.wfile.write("Internal server error: %s." % e.message)
-                self._logger.warning("Internal server error: %s." % e.message)
+                self._logger.warning("Internal server error: %s" % e.message)
                 self._logger.debug(traceback.format_exc())
+                self.send_error(500, "Internal server error: %s" % e.message)
+
+            except:
+                self._logger.warning("Unexpected error: %s", sys.exc_info()[0])
+                self._logger.debug(traceback.format_exc())
+                self.send_error(500, "Unexpected error: %s", sys.exc_info()[0])
 
             return
+
 
         def passthrough(self, url):
             proxy_handler = urllib2.ProxyHandler(self._ingestproxy)
             opener = urllib2.build_opener(proxy_handler)
-            buff = None
-            res = None
 
+            buff = None
             try:
                 res = opener.open(url)
-
-                self.send_response(res.getcode())
-                for key in res.info():
-                    self.send_header(key, res.info()[key])
-                self.end_headers()
                 buff = res.read()
-                self.wfile.write(buff)
 
-                self._logger.debug("Passthrough url '%s'" % url)
+                if res.getcode() >=400:
+                    self.send_error(res.getcode(), buff)
+                else:
+                    self.send_response(res.getcode())
+
+                    # copy important headers
+                    headers = res.info()
+                    for headername in ['Content-Type', 'Cache-Control', 'Last-Modified']:
+                        try:
+                            self.send_header(headername, headers[headername])
+                        except KeyError:
+                            continue
+
+                    # fucking CORS
+                    self.send_header('Access-Control-Allow-Origin', '*')
+                    self.send_header('Access-Control-Allow-Methods', 'GET,HEAD,OPTIONS')
+                    self.send_header('Access-Control-Expose-Headers','Server,range,Content-Length,Content-Range,Date')
+                    self.send_header('Access-Control-Allow-Headers', 'origin,range,accept-encoding,referer')
+
+                    self.send_header('Content-Length', str(len(buff)))
+                    self.end_headers()
+
+                    self.wfile.write(buff)          #TODO: rewrite to use shutil.copyfileobj()
+
             except urllib2.URLError as e:
                 e.url = url
                 raise e
-            return buff
+            return buff             # needed for MPD parse
 
-        def respond(self, buff):
-            try:
-                self.send_response(200)
-                self.end_headers()
-                self.wfile.write(buff)
-
-            except Exception as e:
-                print e.message
-                self.send_response(500)
-                self.wfile.write(e.message)
-
-
-        #silence logging
+        # silence logging
         def log_message(self, format, *args):
             return
 
     return CustomHandler
 
 
-
 class DASHProxy():
 
-    def __init__(self, logger, ip, port, configfps, ingestproxy, mcip, memcachedaddress):
+    def __init__(self, logger, ip, port, configfps, ingestproxy, mcip):
 
         self._logger = logger
         self._ip = ip
-        self._port = int(port)
+        self._port = port
 
         # read all config files and add channels
         for configfp in configfps:
             Channel.append(configfp)
 
-        # handler class for responding to http requests
-        self._myhandler = MakeHandlerClass(self._logger.getChild("HTTPServer"), ingestproxy, mcip, memcachedaddress)
-        self._server = None
+        # create shared memdb
+        self._memdb = MemDB()
 
-        # used to trigger the stitching of RTP packets
-        self._stitcher = Stitcher(name="stitcher", args=(self._logger.getChild("Stitcher"), memcachedaddress))
+        # handler class for responding to http requests
+        self._myhandler = MakeHandlerClass(self._logger.getChild("HTTPServer"), ingestproxy, mcip, self._memdb)
+        #self._myhandler.protocol_version = "HTTP/1.1"  #-->Do not use HTTP1.1 because handler does not support 206 and byte requests easily.
+        self._myhandler.server_version = "m2u"
+        self._httpd = None
+
+        # stitcher for concatenating RTP slices into fragments
+        self._stitcher = Stitcher(name="stitcher", args=(self._logger.getChild("Stitcher"), self._memdb))
+
 
     def serve_requests(self):
 
@@ -226,20 +246,20 @@ class DASHProxy():
             self._stitcher.start()
 
             #start HTTP server
-            self._server = HTTPServer((self._ip, self._port), self._myhandler)
-
+            self._httpd = HTTPServer((self._ip, self._port), self._myhandler)
             self._logger.info("Handling requests on %s:%d" % (self._ip, self._port))
 
             # This will block and periodically check the shutdown signal
-            self._server.serve_forever()
+            self._httpd.serve_forever()
         except:
             self.stop()
             raise
 
+
     def stop(self):
-        if self._server is not None:
-            self._server.shutdown()
-            self._server = None
+        if self._httpd is not None:
+            self._httpd.shutdown()
+            self._httpd = None
 
         if self._stitcher is not None:
             self._stitcher.stop()
