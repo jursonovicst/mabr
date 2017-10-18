@@ -10,3 +10,8 @@ Use the dashenc.patch to add this feature (tested with ffmpeg n3.3.2)
 ## ch02.service
 
 Sample service file to allow simulating live streams by looping a file indefinetely. A wallclock timestamp is added to the video as an overlay text before encoding.
+
+
+## check_nvidia.sh
+
+Locak checkmk script to check the load on an nvidia GPU (for enc/dec acceleration).
