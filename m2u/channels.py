@@ -1,6 +1,7 @@
 import ConfigParser
 import re
 
+
 # represents a channel
 class Channel:
 

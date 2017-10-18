@@ -35,7 +35,7 @@ class RTPMABRDATA(RTPEXT):
         ('bytemax', 'I', 0),    # slice's ending byte offset in the fragment
     )
 
-    def __init__(self, rtpmabrdata=None):
+    def __init__(self):
         super(RTPMABRDATA, self).__init__()
         self.id = self.ID
         self.length = 2         # in 4 bytes
@@ -54,8 +54,8 @@ class RTPMABRSTITCHER(RTPMABRDATA):
         return binascii.crc32(buff) & 0xffffffff
 
     @staticmethod
-    def validateChecksum(buff, checksum):
-        return (RTPMABRSTITCHER.checksum(buff) == checksum)
+    def validatechecksum(buff, checksum):
+        return RTPMABRSTITCHER.checksum(buff) == checksum
 
     @staticmethod
     def checksum2str(checksum):
@@ -105,7 +105,7 @@ class RTPMABRSTITCHER(RTPMABRDATA):
 
             self.data = rtpmabrdata.data
 
-    def updateChecksum(self, buff):
+    def updatechecksum(self, buff):
         self.checksum = RTPMABRSTITCHER.checksum(buff)
 
     def unpack(self, buf):

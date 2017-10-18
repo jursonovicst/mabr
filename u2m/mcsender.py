@@ -6,9 +6,6 @@ import urllib2
 import socket
 import random
 import rtpext
-import struct
-import math
-import re
 
 
 class MCSender(threading.Thread):
@@ -104,11 +101,12 @@ class MCSender(threading.Thread):
             message = "Accessing segment '%s': " % url
 
             # repeate until fragment does present on origin or origin error (!=404), limit by two fragment time
+            ret = ''
             retcode = 404
             WAITAFTER404 = 0.100
             MAXATTEMPT = int(self._period / WAITAFTER404 * 2)
             attempt = 0
-            while(retcode == 404):
+            while retcode == 404:
                 try:
                     attempt += 1
                     ret = self._opener.open(url)
@@ -154,8 +152,8 @@ class MCSender(threading.Thread):
             readpos = 0
             numberofsentpackets = 0
 
-            buff=ret.read(readsize) # slice of a fragment
-            chunk=buff              # the whole fragment (for checksum calculation)
+            buff = ret.read(readsize)     # slice of a fragment
+            chunk = buff                  # the whole fragment (for checksum calculation)
             self._rtp_pkt.m = 0
             self._rtp_pkt.ts = self._calctimestamp(90000)
 
@@ -183,7 +181,7 @@ class MCSender(threading.Thread):
                     rtp_pkt_stitcher.burstseqfirst = burstseqfirst
                     rtp_pkt_stitcher.burstseqlast = rtp_pkt_stitcher.seq
                     rtp_pkt_stitcher.chunknumber = self._number
-                    rtp_pkt_stitcher.updateChecksum(chunk)
+                    rtp_pkt_stitcher.updatechecksum(chunk)
                     message += ", checksum: %s" % rtpext.RTPMABRSTITCHER.checksum2str(rtp_pkt_stitcher.checksum)
 
                     # put it into the jobbuffer

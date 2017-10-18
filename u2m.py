@@ -1,10 +1,6 @@
 import u2m
-
 import logging
 import argparse
-import time
-import signal
-
 import traceback
 
 parser = argparse.ArgumentParser(description='...')

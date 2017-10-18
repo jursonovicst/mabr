@@ -48,7 +48,7 @@ class MPDParser:
 
         return multicasts
 
-    def getMediaPatterns(self):
+    def getmediapatterns(self):
         if self._mpdroot is None:
             self._loadmpd()
 
@@ -56,7 +56,7 @@ class MPDParser:
             for segmenttemplate in representation.findall('.//ns:SegmentTemplate', MPDParser._ns):
                 yield (segmenttemplate.attrib['media'].replace('$RepresentationID$', representation.attrib['id']).replace('.', '\.').replace('$Number$', '(\d+)'), representation.attrib['id'])
 
-    def getInitializationPatterns(self):
+    def getinitializationpatterns(self):
         if self._mpdroot is None:
             self._loadmpd()
 
@@ -64,7 +64,7 @@ class MPDParser:
             for segmenttemplate in representation.findall('.//ns:SegmentTemplate', MPDParser._ns):
                 yield (segmenttemplate.attrib['initialization'].replace('$RepresentationID$', representation.attrib['id']).replace('.', '\.'), representation.attrib['id'])
 
-    def getMimeTypes(self):
+    def getmimetypes(self):
         if self._mpdroot is None:
             self._loadmpd()
 

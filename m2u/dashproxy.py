@@ -71,7 +71,7 @@ def makehandlerclass(logger, ingestproxy, mcip, memdb):
                     mpdparser = dash.MPDParser(mpd)
 
                     # parse url templates for multicast
-                    for template, representationid in mpdparser.getMediaPatterns():
+                    for template, representationid in mpdparser.getmediapatterns():
                         mediapattern = os.path.dirname(self.path) + '/' + template
 
                         channel.findstream(representationid).setmediapattern(mediapattern)
@@ -79,14 +79,14 @@ def makehandlerclass(logger, ingestproxy, mcip, memdb):
                         self._logger.debug("Set '%s' pattern for multicast delivery." % mediapattern)
 
                     # parse url templates for initsegment
-                    for template, representationid in mpdparser.getInitializationPatterns():
+                    for template, representationid in mpdparser.getinitializationpatterns():
                         initializationpattern = os.path.dirname(self.path) + '/' + template
 
                         channel.findstream(representationid).setinitializationpattern(initializationpattern)
                         self._logger.debug("Set '%s' pattern for passthrough." % initializationpattern)
 
                     # parse mime-types
-                    for mimetype, representationid in mpdparser.getMimeTypes():
+                    for mimetype, representationid in mpdparser.getmimetypes():
                         channel.findstream(representationid).setmimetype(mimetype)
 
                     # Start multicast receivers, if not already running

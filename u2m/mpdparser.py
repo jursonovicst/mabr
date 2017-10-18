@@ -7,7 +7,7 @@ from mcsender import *
 class MPDParser:
 
     @staticmethod
-    def _str2unixtime(self, timestr):
+    def _str2unixtime(timestr):
         if timestr is None or timestr == "":
             return 0
 
@@ -37,19 +37,19 @@ class MPDParser:
         self._config.readfp(configfp)
         self._jobs = []
 
-    def _calculateLastNumber(self, timescale, duration, startNumber, availabilityStartTime, presentationTimeOffset=0, suggestedPresentationDelay=0):
-        return self._calculateNumber(time.time(), timescale, duration, startNumber, availabilityStartTime, presentationTimeOffset, suggestedPresentationDelay)
+    def _calculatelastnumber(self, timescale, duration, startnumber, availabilitystarttime, presentationtimeoffset=0, suggestedpresentationdelay=0):
+        return self._calculateNumber(time.time(), timescale, duration, startnumber, availabilitystarttime, presentationtimeoffset, suggestedpresentationdelay)
 
-    def _calculateNumber(self, at, timescale, duration, startNumber, availabilityStartTime, presentationTimeOffset=0, suggestedPresentationDelay=0):
+    def _calculateNumber(self, at, timescale, duration, startnumber, availabilitystarttime, presentationtimeoffset=0, suggestedpresentationdelay=0):
 
         self._logger.debug("at %d" % at)
         self._logger.debug("timescale %d" % int(timescale))
         self._logger.debug("duration %d" % int(duration))
-        self._logger.debug("startNumber %d" % int(startNumber))
-        self._logger.debug("availabilityStartTime %d" % self._str2unixtime(availabilityStartTime))
-        self._logger.debug("presentationTimeOffset %s" % presentationTimeOffset)
-        self._logger.debug("suggestedPresentationDelay %d" % self._str2unixtime(suggestedPresentationDelay))
-        return (time.time() - self._str2unixtime(availabilityStartTime) - int(duration) / int(timescale)) / (int(duration)/int(timescale)) + int(startNumber)
+        self._logger.debug("startNumber %d" % int(startnumber))
+        self._logger.debug("availabilityStartTime %d" % self._str2unixtime(availabilitystarttime))
+        self._logger.debug("presentationTimeOffset %s" % presentationtimeoffset)
+        self._logger.debug("suggestedPresentationDelay %d" % self._str2unixtime(suggestedpresentationdelay))
+        return (time.time() - self._str2unixtime(availabilitystarttime) - int(duration) / int(timescale)) / (int(duration) / int(timescale)) + int(startnumber)
 
     def fetch(self):
         # get mpd
@@ -62,7 +62,7 @@ class MPDParser:
         # parse mpd
         mpdroot = ET.fromstring(mpd)
 
-        #check xml      # TODO: use xslt...
+        # check xml      # TODO: use xslt...
         if 'profiles' not in mpdroot.attrib:
             raise Exception("invalid mpd, no profile")
         self._logger.debug("MPD %s found" % mpdroot.attrib['profiles'])
@@ -94,7 +94,7 @@ class MPDParser:
                                                                  int(ssrc),          # 2
                                                                  urltemplate,        # 3
                                                                  representation.attrib['id'],    # 4
-                                                                 self._calculateLastNumber(segmenttemplate.attrib['timescale'], segmenttemplate.attrib['duration'], segmenttemplate.attrib['startNumber'], mpdroot.attrib['availabilityStartTime'], mpdroot.attrib['presentationTimeOffset'] if 'presentationTimeOffset' in mpdroot.attrib else 0, mpdroot.attrib['suggestedPresentationDelay'] if 'suggestedPresentationDelay' in mpdroot.attrib else 0),
+                                                                 self._calculatelastnumber(segmenttemplate.attrib['timescale'], segmenttemplate.attrib['duration'], segmenttemplate.attrib['startNumber'], mpdroot.attrib['availabilityStartTime'], mpdroot.attrib['presentationTimeOffset'] if 'presentationTimeOffset' in mpdroot.attrib else 0, mpdroot.attrib['suggestedPresentationDelay'] if 'suggestedPresentationDelay' in mpdroot.attrib else 0),
                                                                  int(segmenttemplate.attrib['duration'])/int(segmenttemplate.attrib['timescale']),
                                                                  self._proxy,        # 7
                                                                  self._logger.getChild('MCSender-%d' % ssrc),       # 8
