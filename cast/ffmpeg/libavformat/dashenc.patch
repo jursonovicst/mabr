@@ -1,0 +1,41 @@
+--- dashenc.c	2017-10-18 16:33:19.308799685 +0200
++++ /home/cdn/mabr/cast/ffmpeg/libavformat/dashenc.c	2017-10-18 16:35:34.884695622 +0200
+@@ -82,6 +82,7 @@
+     const AVClass *class;  /* Class for private options. */
+     int window_size;
+     int extra_window_size;
++    int min_buffer_time;
+     int min_seg_duration;
+     int remove_at_exit;
+     int use_template;
+@@ -491,7 +492,7 @@
+         }
+     }
+     avio_printf(out, "\tminBufferTime=\"");
+-    write_time(out, c->last_duration);
++    write_time(out, c->min_buffer_time == 0 ? c->last_duration : c->min_buffer_time * AV_TIME_BASE);
+     avio_printf(out, "\">\n");
+     avio_printf(out, "\t<ProgramInformation>\n");
+     if (title) {
+@@ -504,11 +505,11 @@
+         OutputStream *os = &c->streams[0];
+         int start_index = FFMAX(os->nb_segments - c->window_size, 0);
+         int64_t start_time = av_rescale_q(os->segments[start_index]->time, s->streams[0]->time_base, AV_TIME_BASE_Q);
+-        avio_printf(out, "\t<Period start=\"");
++        avio_printf(out, "\t<Period id=\"0\" start=\"");
+         write_time(out, start_time);
+         avio_printf(out, "\">\n");
+     } else {
+-        avio_printf(out, "\t<Period start=\"PT0.0S\">\n");
++        avio_printf(out, "\t<Period id=\"0\" start=\"PT0.0S\">\n");
+     }
+ 
+     if (c->has_video) {
+@@ -1055,6 +1056,7 @@
+ static const AVOption options[] = {
+     { "window_size", "number of segments kept in the manifest", OFFSET(window_size), AV_OPT_TYPE_INT, { .i64 = 0 }, 0, INT_MAX, E },
+     { "extra_window_size", "number of segments kept outside of the manifest before removing from disk", OFFSET(extra_window_size), AV_OPT_TYPE_INT, { .i64 = 5 }, 0, INT_MAX, E },
++    { "min_buffer_time", "minBufferTime (in seconds)", OFFSET(min_buffer_time), AV_OPT_TYPE_INT, { .i64 = 0 }, 0, INT_MAX, E },
+     { "min_seg_duration", "minimum segment duration (in microseconds)", OFFSET(min_seg_duration), AV_OPT_TYPE_INT64, { .i64 = 5000000 }, 0, INT_MAX, E },
+     { "remove_at_exit", "remove all segments when finished", OFFSET(remove_at_exit), AV_OPT_TYPE_BOOL, { .i64 = 0 }, 0, 1, E },
+     { "use_template", "Use SegmentTemplate instead of SegmentList", OFFSET(use_template), AV_OPT_TYPE_BOOL, { .i64 = 1 }, 0, 1, E },
