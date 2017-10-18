@@ -1,23 +1,18 @@
-import threading
-from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
-from SimpleHTTPServer import SimpleHTTPRequestHandler
-import os
-import urllib2
-import dash
-import Queue
-import traceback
-import sys
-import re
-from rtpext import *
 from memdb import MemDB
-
-
 from receiver import Receiver
 from stitcher import Stitcher
 from channels import *
-import time
 
-def MakeHandlerClass(logger, ingestproxy, mcip, memdb):
+from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
+import os
+import urllib2
+import dash
+import traceback
+import sys
+import re
+
+
+def makehandlerclass(logger, ingestproxy, mcip, memdb):
     class CustomHandler(BaseHTTPRequestHandler, object):
 
         _urltemplates = []
@@ -33,7 +28,7 @@ def MakeHandlerClass(logger, ingestproxy, mcip, memdb):
 
         def __init__(self, *args, **kwargs):
             self._logger = logger
-            self._ingestproxy = None if ingestproxy == None or ingestproxy =="" else {'http': ingestproxy}
+            self._ingestproxy = None if ingestproxy is None or ingestproxy == "" else {'http': ingestproxy}
             self._mcip = mcip
             self._memdb = memdb
 
@@ -153,8 +148,8 @@ def MakeHandlerClass(logger, ingestproxy, mcip, memdb):
                 self.send_error(e.code, e.message)
 
             except urllib2.URLError as e:
-                self._logger.warning("%s could not be reached: %s" % (e.url, e.reason))
-                self.send_error(400, "%s could not be reached: %s" % (e.url, e.reason))
+                self._logger.warning("URL could not be reached: %s" % e.reason)
+                self.send_error(400, "URL could not be reached: %s" % e.reason)
 
             except Exception as e:
                 self._logger.warning("Internal server error: %s" % e.message)
@@ -164,7 +159,7 @@ def MakeHandlerClass(logger, ingestproxy, mcip, memdb):
             except:
                 self._logger.warning("Unexpected error: %s", sys.exc_info()[0])
                 self._logger.debug(traceback.format_exc())
-                self.send_error(500, "Unexpected error: %s", sys.exc_info()[0])
+                self.send_error(500, "Unexpected error: %s" % sys.exc_info()[0])
 
             return
 
@@ -178,7 +173,7 @@ def MakeHandlerClass(logger, ingestproxy, mcip, memdb):
                 res = opener.open(url)
                 buff = res.read()
 
-                if res.getcode() >=400:
+                if res.getcode() >= 400:
                     self.send_error(res.getcode(), buff)
                 else:
                     self.send_response(res.getcode())
@@ -194,13 +189,13 @@ def MakeHandlerClass(logger, ingestproxy, mcip, memdb):
                     # fucking CORS
                     self.send_header('Access-Control-Allow-Origin', '*')
                     self.send_header('Access-Control-Allow-Methods', 'GET,HEAD,OPTIONS')
-                    self.send_header('Access-Control-Expose-Headers','Server,range,Content-Length,Content-Range,Date')
+                    self.send_header('Access-Control-Expose-Headers', 'Server,range,Content-Length,Content-Range,Date')
                     self.send_header('Access-Control-Allow-Headers', 'origin,range,accept-encoding,referer')
 
                     self.send_header('Content-Length', str(len(buff)))
                     self.end_headers()
 
-                    self.wfile.write(buff)          #TODO: rewrite to use shutil.copyfileobj()
+                    self.wfile.write(buff)          # TODO: rewrite to use shutil.copyfileobj()
 
             except urllib2.URLError as e:
                 e.url = url
@@ -214,7 +209,7 @@ def MakeHandlerClass(logger, ingestproxy, mcip, memdb):
     return CustomHandler
 
 
-class DASHProxy():
+class DASHProxy:
 
     def __init__(self, logger, ip, port, configfps, ingestproxy, mcip):
 
@@ -230,8 +225,8 @@ class DASHProxy():
         self._memdb = MemDB()
 
         # handler class for responding to http requests
-        self._myhandler = MakeHandlerClass(self._logger.getChild("HTTPServer"), ingestproxy, mcip, self._memdb)
-        #self._myhandler.protocol_version = "HTTP/1.1"  #-->Do not use HTTP1.1 because handler does not support 206 and byte requests easily.
+        self._myhandler = makehandlerclass(self._logger.getChild("HTTPServer"), ingestproxy, mcip, self._memdb)
+#        self._myhandler.protocol_version = "HTTP/1.1"  #-->Do not use HTTP1.1 because handler does not support 206 and byte requests easily.
         self._myhandler.server_version = "m2u"
         self._httpd = None
 
@@ -242,10 +237,10 @@ class DASHProxy():
     def serve_requests(self):
 
         try:
-            #start stitcher
+            # start stitcher
             self._stitcher.start()
 
-            #start HTTP server
+            # start HTTP server
             self._httpd = HTTPServer((self._ip, self._port), self._myhandler)
             self._logger.info("Handling requests on %s:%d" % (self._ip, self._port))
 
