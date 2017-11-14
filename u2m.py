@@ -31,4 +31,5 @@ if __name__ == '__main__':
         logging.warning("Oops (%s), systemd should respawn me..." % str(e))
         logging.debug(traceback.format_exc())
 
-    mpd.stop()
+    if mpd is not None:
+        mpd.stop()
