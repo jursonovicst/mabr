@@ -12,6 +12,7 @@ ExecStart = /usr/bin/python2.7 u2m.py $CONFIGS
 
 User = username
 Restart=always
+RestartSec=10
 
 
 [Install]
