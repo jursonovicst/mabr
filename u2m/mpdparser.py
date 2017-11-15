@@ -16,10 +16,10 @@ class MPDParser:
             return time.mktime(time.strptime(timestr, "%Y-%m-%dT%H:%M:%S.%fZ"))
         except ValueError:
             try:
-                return time.mktime(time.strptime(timestr, "%Y-%m-%dT%H:%M:%SZ"))
+                return time.mktime(time.strptime(timestr, "%Y-%m-%dT%H:%M:%SZ")) - time.timezone	# This is in UTC, convert to localtime + do not forget DST!!!
             except ValueError:
                 try:
-                    return time.mktime(time.strptime(timestr, "%Y-%m-%dT%H:%M:%S")) - time.altzone      # This is in UTC, convert to localtime + do not forget DST!!!
+                    return time.mktime(time.strptime(timestr, "%Y-%m-%dT%H:%M:%S"))
                 except ValueError:
                     try:
                         match = re.search("PT(\d+(\.\d+)*)S", timestr)
