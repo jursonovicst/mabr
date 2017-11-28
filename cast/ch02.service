@@ -7,22 +7,25 @@ After = network.target
 Environment = INPUT=input/bbb_sunflower_1080p_30fps_normal.mp4 NAME=ch02 DST=output/ch02
 
 WorkingDirectory = /home/cdn/mabr/cast
+ExecStartPre = /bin/bash -c 'echo -e "RANDOM=$RANDOM\n" > /tmp/ch02_env'
+EnvironmentFile = /tmp/ch02_env
+
 ExecStartPre = /bin/mkdir -p $DST
 
 ExecStart = /usr/local/bin/ffmpeg -nostats \
   -re -stream_loop -1 \
   -c:v h264_cuvid -i $INPUT \
   -vf "drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf:text='Wall clock time before encoding\: %{localtime\: %T %Z} ':fontsize=36:fontcolor='yellow':boxcolor=black@0.4:box=1:x=10:y=10" \
-  -c:v h264_nvenc -b:v 3000k -maxrate 3500k -g 60 -no-scenecut 1 -strict_gop 1 \
+  -c:v h264_nvenc -b:v 3000k -maxrate 3500k -g 60 -no-scenecut 1 -strict_gop 1 -forced-idr 1 \
   -f dash -min_seg_duration 2000000 \
           -extra_window_size 20 \
           -remove_at_exit true \
           -use_template 1 \
           -use_timeline 0 \
-          -media_seg_name "chunk-stream$RepresentationID$-$Number$.m4s" \
-          -min_buffer_time 5 \
+          -media_seg_name "chunk-${RANDOM}-stream$RepresentationID$-$Number$.m4s" \
   ${DST}/${NAME}.mpd
 
+#          -min_buffer_time 5 \
 #  -vf "drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf:timecode='00\:00\:00\:00':rate=30:text='Wall clock time before encoding\: %{localtime\: %T %Z} ':fontsize=36:fontcolor='yellow':boxcolor=black@0.4:box=1:x=10:y=10" \
 #  -filter_complex "[0:v]split=2[in1][in2];[in1]drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf:fontsize=36:fontcolor=yellow:y=150:box=1:boxcolor=black@0.4:text='-->3500k<-- 6000k  Wall clock time before encoding\: %{localtime\: %T %Z}'[out1];[in2]drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf:fontsize=36:fontcolor=yellow:y=150:box=1:boxcolor=black@0.4:text='3500k -->6000k<--  Wall clock time before encoding\: %{localtime\: %T %Z}'[out2]" \
 
@@ -31,7 +34,7 @@ ExecStart = /usr/local/bin/ffmpeg -nostats \
 User = cdn
 ExecStopPost = /bin/rm -rf $DST
 Restart=always
-
+RestartSec = 10
 
 [Install]
 WantedBy = multi-user.target
